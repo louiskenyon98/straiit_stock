@@ -12,7 +12,10 @@ The existing visual system remains the design reference, while the database and 
 - The buyer workflow is implemented using a separate transactional `api/portal.db` database.
 - Account applications require explicit approval through `api/manage.py`.
 - Approved users can sign in, submit product-specific and wanted-stock requests, view organisation requests, and sign out.
-- Quote storage and display support exists; an internal trading-desk quote-management interface is still future work.
+- Operator web administration is implemented at `/admin` with role-based access.
+- Durable SMTP notifications and one-time password recovery are implemented.
+- Offline payment is operator-confirmed; no card-payment provider is required.
+- Concurrency-safe portal reservations allocate imported product quantity without mutating the importer database.
 
 ## Existing assets
 
@@ -78,7 +81,7 @@ The design is lot- and pallet-oriented, while the database is product-offer-orie
 | Ten hard-coded lots | Paginated database results |
 | Client-side currency conversion | Display the database's native currency |
 | Authenticated price masking | Defer until authentication exists |
-| Demand requests and reservations | Defer until supported by backend models and endpoints |
+| Demand requests and reservations | Use the separate transactional portal schema and APIs |
 
 Database status codes will be presented as readable labels:
 
@@ -254,7 +257,11 @@ Functional sign-in and demand-request flows require additional backend models an
 - Request status history and quotes
 - Reservation deadlines
 
-The account, session, organisation, application, request, history, and quote schema is now implemented in a separate transactional portal database. Request submission is persistent. Stock reservation is still not claimed or performed because no inventory-allocation workflow exists.
+The account, session, organisation, application, request, history, quote,
+email-outbox, password-reset, and reservation schema is implemented in a separate
+transactional portal database. Operators place quoted stock on a timed hold, confirm it
+after offline payment, or release it. Public catalogue quantities are adjusted by active
+portal reservations.
 
 ### 10. Testing and verification
 
@@ -292,7 +299,7 @@ Frontend verification:
 - All catalogue content comes from the existing SQLite database through the API.
 - Product images are served from the extracted backend media.
 - No hard-coded prototype catalogue data remains in the application.
-- The UI does not claim or display unsupported lot, pallet, carton, warehouse, authentication, request, quote, or reservation data.
+- The UI does not claim or display unsupported lot, pallet, carton, or warehouse data; authentication, requests, quotes, and reservations use the transactional portal schema.
 - Filters and pagination work with the full dataset.
 - Missing supplier fields are handled without misleading output.
 - The visual result remains faithful to the Claude blueprint design.

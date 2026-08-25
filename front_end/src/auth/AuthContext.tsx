@@ -19,10 +19,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: authQuery.isLoading,
     dialogMode,
     openSignIn: () => setDialogMode('signin'),
+    openOperatorSignIn: () => setDialogMode('operator'),
     openApply: () => setDialogMode('apply'),
     closeDialog: () => setDialogMode(null),
     login: async (email, password) => {
       const result = await buyerApi.login(email, password)
+      queryClient.setQueryData(['buyer-session'], result)
+      setDialogMode(null)
+    },
+    operatorLogin: async (email, password) => {
+      const result = await buyerApi.operatorLogin(email, password)
       queryClient.setQueryData(['buyer-session'], result)
       setDialogMode(null)
     },

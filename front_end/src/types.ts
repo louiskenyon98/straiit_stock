@@ -12,6 +12,8 @@ export interface Product {
   gender: string | null
   material?: string | null
   quantity: number | null
+  catalogue_quantity?: number | null
+  reserved_quantity?: number
   wholesale_price: number | null
   retail_price: number | null
   currency: string | null
@@ -128,6 +130,7 @@ export interface BuyerUser {
     registration_number: string | null
   }
   csrf_token: string
+  role: 'buyer' | 'operator'
 }
 
 export interface DemandRequest {
@@ -154,7 +157,72 @@ export interface DemandRequest {
     terms: string | null
     status: string
   } | null
+  reservation: {
+    id: number
+    quantity: number
+    status: 'held' | 'confirmed' | 'released' | 'expired'
+    expires_at: string | null
+  } | null
   history?: { status: string; note: string | null; created_at: string }[]
+}
+
+export interface AdminApplication {
+  id: number
+  company_name: string
+  registration_number: string | null
+  country: string
+  email: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  reviewed_at: string | null
+  review_note: string | null
+}
+
+export interface AdminRequest {
+  id: number
+  reference: string
+  request_type: 'stock' | 'wanted'
+  product_id: number | null
+  brand: string | null
+  category: string | null
+  quantity: number
+  target_price: number | null
+  currency: string | null
+  destination: string
+  status: DemandRequest['status']
+  organization_name: string
+  created_by_email: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AdminReservation {
+  id: number
+  quantity: number
+  status: 'held' | 'confirmed' | 'released' | 'expired'
+  expires_at: string | null
+  created_at: string
+  reference: string
+  product_id: number
+  organization_name: string
+}
+
+export interface EmailDelivery {
+  id: number
+  to_email: string
+  subject: string
+  status: 'queued' | 'sending' | 'sent' | 'failed'
+  attempts: number
+  last_error: string | null
+  created_at: string
+  sent_at: string | null
+}
+
+export interface AdminOverview {
+  applications: AdminApplication[]
+  requests: AdminRequest[]
+  reservations: AdminReservation[]
+  emails: EmailDelivery[]
 }
 
 export interface RequestInput {

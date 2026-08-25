@@ -1,4 +1,5 @@
 import type {
+  AdminOverview,
   BuyerUser,
   DemandRequest,
   Facets,
@@ -74,6 +75,9 @@ export const buyerApi = {
   login: (email: string, password: string) => request<{ user: BuyerUser }>('/api/auth/login', {
     method: 'POST', body: { email, password },
   }),
+  operatorLogin: (email: string, password: string) => request<{ user: BuyerUser }>('/api/auth/operator/login', {
+    method: 'POST', body: { email, password },
+  }),
   apply: (input: { company: string; registration_number: string; country: string; email: string; password: string }) =>
     request<{ id: number; status: string; email: string }>('/api/auth/applications', { method: 'POST', body: input }),
   logout: (csrfToken: string) => request<{ status: string }>('/api/auth/logout', {
@@ -83,4 +87,21 @@ export const buyerApi = {
   createRequest: (input: RequestInput, csrfToken: string) => request<DemandRequest>('/api/requests', {
     method: 'POST', body: input, csrfToken,
   }),
+  requestPasswordReset: (email: string) => request<{ status: string }>('/api/auth/password-reset/request', {
+    method: 'POST', body: { email },
+  }),
+  resetPassword: (token: string, password: string) => request<{ status: string }>('/api/auth/password-reset/confirm', {
+    method: 'POST', body: { token, password },
+  }),
+}
+
+export const adminApi = {
+  overview: (signal?: AbortSignal) => request<AdminOverview>('/api/admin/overview', { signal }),
+  approveApplication: (id: number, csrfToken: string) => request(`/api/admin/applications/${id}/approve`, { method: 'POST', body: {}, csrfToken }),
+  rejectApplication: (id: number, note: string, csrfToken: string) => request(`/api/admin/applications/${id}/reject`, { method: 'POST', body: { note }, csrfToken }),
+  setRequestStatus: (reference: string, status: string, note: string, csrfToken: string) => request(`/api/admin/requests/${encodeURIComponent(reference)}/status`, { method: 'POST', body: { status, note }, csrfToken }),
+  issueQuote: (reference: string, input: { amount: number; currency: string; valid_until?: string; terms?: string }, csrfToken: string) => request(`/api/admin/requests/${encodeURIComponent(reference)}/quote`, { method: 'POST', body: input, csrfToken }),
+  holdStock: (reference: string, csrfToken: string) => request(`/api/admin/requests/${encodeURIComponent(reference)}/hold`, { method: 'POST', body: {}, csrfToken }),
+  confirmReservation: (id: number, note: string, csrfToken: string) => request(`/api/admin/reservations/${id}/confirm`, { method: 'POST', body: { note }, csrfToken }),
+  releaseReservation: (id: number, note: string, csrfToken: string) => request(`/api/admin/reservations/${id}/release`, { method: 'POST', body: { note }, csrfToken }),
 }

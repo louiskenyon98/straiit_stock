@@ -41,6 +41,7 @@ export function AppShell() {
             {navigation.map(([to, label]) => (
               <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>
             ))}
+            {auth.user?.role === 'operator' && <NavLink to="/admin">Trading desk</NavLink>}
             <div className="mobile-account-actions">
               {auth.user ? <button className="button button-secondary" type="button" onClick={() => void auth.logout()}>Sign out</button> : <><button className="button button-secondary" type="button" onClick={auth.openSignIn}>Sign in</button><button className="button button-primary" type="button" onClick={auth.openApply}>Request access</button></>}
             </div>
@@ -48,7 +49,7 @@ export function AppShell() {
           <div className="account-nav">
             {auth.user ? (
               <>
-                <NavLink className="account-company" to="/requests">{auth.user.organization.name}</NavLink>
+                <NavLink className="account-company" to={auth.user.role === 'operator' ? '/admin' : '/requests'}>{auth.user.organization.name}</NavLink>
                 <button className="button button-secondary nav-account-button" type="button" onClick={() => void auth.logout()}>Sign out</button>
               </>
             ) : (
