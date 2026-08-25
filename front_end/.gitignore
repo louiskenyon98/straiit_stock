@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+__pycache__/
+*.pyc
+api/portal.db*
+.pytest_cache/
+.DS_Store

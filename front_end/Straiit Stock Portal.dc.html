@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="_ds/industry-293dea9d-1038-4271-a137-785839d1b78f/styles.css">
+<script src="_ds/industry-293dea9d-1038-4271-a137-785839d1b78f/_ds_bundle.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  body { margin: 0; }
+  a { color: var(--color-accent); }
+  a:hover { color: var(--color-accent-700); }
+  select.input { appearance: none; background-image: none; }
+  .btn, .seg-opt { white-space: nowrap; flex: none; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+
+  <header style="position:sticky;top:0;z-index:30;background:var(--color-bg);border-bottom:1px solid var(--color-divider)">
+    <div class="nav" style="max-width:1240px;margin:0 auto;padding:14px 32px">
+      <a class="nav-brand" style="cursor:pointer;letter-spacing:0.02em" onClick="{{ go.home }}">STRAIIT <span style="color:var(--color-accent)">STOCK PORTAL</span></a>
+      <div style="display:flex;align-items:center;gap:24px;flex-shrink:0;white-space:nowrap">
+        <a style="cursor:pointer" aria-current="{{ cur.home }}" onClick="{{ go.home }}">Overview</a>
+        <a style="cursor:pointer" aria-current="{{ cur.catalogue }}" onClick="{{ go.catalogue }}">Stock list</a>
+        <a style="cursor:pointer" aria-current="{{ cur.brands }}" onClick="{{ go.brands }}">Brands</a>
+        <a style="cursor:pointer" aria-current="{{ cur.requests }}" onClick="{{ go.requests }}">Demand requests</a>
+        <a style="cursor:pointer" aria-current="{{ cur.about }}" onClick="{{ go.about }}">About</a>
+        <a style="cursor:pointer" aria-current="{{ cur.contact }}" onClick="{{ go.contact }}">Support</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-left:24px">
+        <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+          <span class="text-muted" style="font-size:12px">{{ userLabel }}</span>
+          <button class="btn btn-secondary" onClick="{{ signOut }}">Sign out</button>
+        </sc-if>
+        <sc-if value="{{ isGuest }}" hint-placeholder-val="{{ true }}">
+          <button class="btn btn-secondary" onClick="{{ openLogin }}">Sign in</button>
+          <button class="btn btn-primary" onClick="{{ openApply }}">Request access</button>
+        </sc-if>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width:1240px;margin:0 auto;padding:44px 32px 96px">
+
+    <sc-if value="{{ onHome }}" hint-placeholder-val="{{ true }}">
+      <section style="display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,0.95fr);gap:56px;align-items:center;padding-bottom:64px">
+        <div>
+          <h1 style="font-size:60px;max-width:14ch;margin-bottom:20px">Brand overstock, cleared by the pallet.</h1>
+          <p style="font-size:17px;max-width:46ch;color:var(--color-accent-900)">We hold end-of-season and cancelled-order stock from European brands and sell it whole: full SKU breakdowns, verified counts, EX-works or FOB from nine warehouses. Importers register once, then place demand requests against listed lots or tell us what to source.</p>
+          <div style="display:flex;gap:10px;margin-top:26px">
+            <button class="btn btn-primary blueprint" style="padding:12px 22px;font-size:15px" onClick="{{ go.catalogue }}">Browse the stock list<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></button>
+            <button class="btn btn-secondary" style="padding:12px 22px;font-size:15px" onClick="{{ go.wanted }}">Post a demand request</button>
+          </div>
+        </div>
+        <figure class="blueprint duotone" style="height:420px;min-width:0;overflow:hidden">
+          <image-slot id="home-hero" shape="rect" fit="cover" placeholder="Drop a warehouse / pallet photo"></image-slot>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </figure>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--color-divider)">
+        <div style="padding:24px 22px;border-right:1px solid var(--color-divider)">
+          <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">01 · Units in stock</div>
+          <div style="font-family:var(--font-heading);font-size:40px;line-height:1.1;margin-top:6px">{{ stats.units }}</div>
+        </div>
+        <div style="padding:24px 22px;border-right:1px solid var(--color-divider)">
+          <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">02 · Brands</div>
+          <div style="font-family:var(--font-heading);font-size:40px;line-height:1.1;margin-top:6px">{{ stats.brands }}</div>
+        </div>
+        <div style="padding:24px 22px;border-right:1px solid var(--color-divider)">
+          <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">03 · Open lots</div>
+          <div style="font-family:var(--font-heading);font-size:40px;line-height:1.1;margin-top:6px">{{ stats.lots }}</div>
+        </div>
+        <div style="padding:24px 22px">
+          <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">04 · Warehouses</div>
+          <div style="font-family:var(--font-heading);font-size:40px;line-height:1.1;margin-top:6px">9</div>
+        </div>
+      </section>
+
+      <section style="padding-top:64px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px">
+          <h2>Latest lots</h2>
+          <a style="cursor:pointer;font-size:14px" onClick="{{ go.catalogue }}">All {{ stats.lots }} lots →</a>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:26px">
+          <sc-for list="{{ featured }}" as="lot" hint-placeholder-count="3">
+            <article class="card blueprint" style="padding:20px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+                <div class="card-kicker">{{ lot.brand }}</div>
+                <span class="tag {{ lot.statusTag }}">{{ lot.status }}</span>
+              </div>
+              <div class="card-title" style="font-size:20px">{{ lot.title }}</div>
+              <div class="text-muted" style="font-size:12px">{{ lot.code }} · {{ lot.season }}</div>
+              <div style="display:flex;gap:20px;margin-top:10px;font-size:13px">
+                <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Units</div>{{ lot.unitsLabel }}</div>
+                <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Offer</div>{{ lot.offerLabel }}</div>
+              </div>
+              <button class="btn btn-secondary btn-block" onClick="{{ lot.open }}">View SKUs</button>
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            </article>
+          </sc-for>
+        </div>
+      </section>
+
+      <section style="padding-top:72px">
+        <h2 style="margin-bottom:20px">How a deal runs</h2>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--color-divider)">
+          <div style="padding:26px 24px;border-right:1px solid var(--color-divider)">
+            <div style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.1em;color:var(--color-accent)">STEP 01</div>
+            <h4 style="margin:8px 0 6px">Get an account</h4>
+            <p class="text-muted" style="font-size:14px;margin:0">Apply with company details and VAT or import licence number. We approve inside one working day, then unit pricing and SKU sheets open up.</p>
+          </div>
+          <div style="padding:26px 24px;border-right:1px solid var(--color-divider)">
+            <div style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.1em;color:var(--color-accent)">STEP 02</div>
+            <h4 style="margin:8px 0 6px">Request against a lot</h4>
+            <p class="text-muted" style="font-size:14px;margin:0">Pick a lot, state quantity, target price and destination port. We hold the cartons for 48 hours while we quote.</p>
+          </div>
+          <div style="padding:26px 24px">
+            <div style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.1em;color:var(--color-accent)">STEP 03</div>
+            <h4 style="margin:8px 0 6px">Or tell us what you want</h4>
+            <p class="text-muted" style="font-size:14px;margin:0">Standing demand requests sit on file. When matching stock lands, you are contacted before it reaches the public list.</p>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ onCatalogue }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:24px">
+        <div>
+          <h6 style="color:var(--color-accent)">Stock list</h6>
+          <h1 style="margin:0">Available lots</h1>
+        </div>
+        <div class="text-muted" style="font-size:13px;text-align:right">{{ resultLabel }}<br>Counts verified {{ stats.updated }}</div>
+      </div>
+
+      <div class="blueprint" style="display:flex;gap:12px;align-items:flex-end;padding:18px;margin-bottom:30px">
+        <div class="field" style="flex:1">
+          <label>Search brand, SKU or lot code</label>
+          <input class="input" type="text" placeholder="e.g. ATL-4471 or polo" value="{{ filters.q }}" onChange="{{ on.q }}">
+        </div>
+        <div class="field" style="width:180px">
+          <label>Brand</label>
+          <select class="input" value="{{ filters.brand }}" onChange="{{ on.brand }}">
+            <sc-for list="{{ brandOptions }}" as="b" hint-placeholder-count="4"><option value="{{ b }}">{{ b }}</option></sc-for>
+          </select>
+        </div>
+        <div class="field" style="width:180px">
+          <label>Category</label>
+          <select class="input" value="{{ filters.cat }}" onChange="{{ on.cat }}">
+            <sc-for list="{{ catOptions }}" as="c" hint-placeholder-count="4"><option value="{{ c }}">{{ c }}</option></sc-for>
+          </select>
+        </div>
+        <div class="field" style="width:180px">
+          <label>Sort</label>
+          <select class="input" value="{{ filters.sort }}" onChange="{{ on.sort }}">
+            <option value="units">Largest quantity</option>
+            <option value="price">Lowest unit price</option>
+            <option value="brand">Brand A–Z</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" style="height:36px" onClick="{{ on.reset }}">Reset</button>
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      </div>
+
+      <sc-if value="{{ priceLocked }}" hint-placeholder-val="{{ false }}">
+        <div class="blueprint" style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 18px;margin-bottom:28px;background:var(--color-accent-100)">
+          <div style="font-size:14px;color:var(--color-accent-900)">Unit pricing and full SKU breakdowns are shown to verified importers. Sign in, or request an account with your company details.</div>
+          <button class="btn btn-primary" onClick="{{ openLogin }}">Sign in</button>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </div>
+      </sc-if>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:28px">
+        <sc-for list="{{ lots }}" as="lot" hint-placeholder-count="6">
+          <article class="card blueprint" style="padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+              <div class="card-kicker">{{ lot.brand }}</div>
+              <span class="tag {{ lot.statusTag }}">{{ lot.status }}</span>
+            </div>
+            <div class="card-title" style="font-size:21px">{{ lot.title }}</div>
+            <div class="text-muted" style="font-size:12px">{{ lot.code }} · {{ lot.cat }} · {{ lot.season }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin:14px 0 4px;font-size:13px">
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Total units</div>{{ lot.unitsLabel }}</div>
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Cartons / pallets</div>{{ lot.packLabel }}</div>
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Warehouse</div>{{ lot.wh }}</div>
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">SKUs in lot</div>{{ lot.skuCount }}</div>
+            </div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-top:1px solid var(--color-divider);margin-top:10px;padding-top:12px">
+              <div>
+                <div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Offer / unit</div>
+                <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">{{ lot.offerLabel }}</div>
+                <div class="text-muted" style="font-size:11px">RRP {{ lot.rrpLabel }} · MOQ {{ lot.moqLabel }}</div>
+              </div>
+              <button class="btn btn-primary" onClick="{{ lot.open }}">Open lot</button>
+            </div>
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          </article>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+        <div class="blueprint" style="padding:48px;text-align:center">
+          <h3 style="margin-bottom:6px">No lots match that filter</h3>
+          <p class="text-muted" style="font-size:14px">Clear the filters, or post a demand request and we will source it.</p>
+          <button class="btn btn-secondary" onClick="{{ go.wanted }}">Post a demand request</button>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ onLot }}" hint-placeholder-val="{{ false }}">
+      <a style="cursor:pointer;font-size:13px" onClick="{{ go.catalogue }}">← Back to stock list</a>
+      <div style="display:grid;grid-template-columns:0.9fr 1.1fr;gap:44px;margin-top:22px">
+        <figure class="blueprint duotone" style="height:360px">
+          <image-slot id="lot-photo" shape="rect" fit="cover" placeholder="Drop a product or carton photo"></image-slot>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </figure>
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span class="card-kicker">{{ lot.brand }}</span>
+            <span class="tag {{ lot.statusTag }}">{{ lot.status }}</span>
+            <span class="tag tag-outline">{{ lot.cat }}</span>
+          </div>
+          <h1 style="margin:0 0 4px">{{ lot.title }}</h1>
+          <div class="text-muted" style="font-size:13px;margin-bottom:18px">Lot {{ lot.code }} · {{ lot.season }}</div>
+          <p style="font-size:14px;max-width:52ch">{{ lot.cond }}</p>
+          <table class="table" style="margin-top:10px">
+            <tbody>
+              <tr><td class="text-muted" style="width:44%">Total units</td><td>{{ lot.unitsLabel }}</td></tr>
+              <tr><td class="text-muted">Cartons / pallets</td><td>{{ lot.packLabel }}</td></tr>
+              <tr><td class="text-muted">Warehouse</td><td>{{ lot.wh }}</td></tr>
+              <tr><td class="text-muted">Terms</td><td>EXW warehouse · FOB on request</td></tr>
+              <tr><td class="text-muted">Minimum order</td><td>{{ lot.moqLabel }}</td></tr>
+              <tr><td class="text-muted">RRP / offer per unit</td><td>{{ lot.rrpLabel }} / <strong>{{ lot.offerLabel }}</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <section style="margin-top:56px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+          <h3 style="margin:0">SKU breakdown</h3>
+          <span class="text-muted" style="font-size:12px">{{ lot.skuCount }} SKUs · {{ lot.unitsLabel }} units</span>
+        </div>
+        <div class="blueprint" style="padding:14px 18px">
+          <table class="table">
+            <thead>
+              <tr><th>SKU</th><th>Variant</th><th>Units</th><th>Cartons</th><th>RRP</th><th>Offer</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ skus }}" as="s" hint-placeholder-count="5">
+                <tr>
+                  <td style="font-family:var(--font-heading);letter-spacing:0.03em">{{ s.sku }}</td>
+                  <td>{{ s.variant }}</td>
+                  <td>{{ s.unitsLabel }}</td>
+                  <td>{{ s.cartons }}</td>
+                  <td class="text-muted">{{ s.rrpLabel }}</td>
+                  <td><strong>{{ s.offerLabel }}</strong></td>
+                  <td><span class="tag {{ s.tag }}">{{ s.state }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </div>
+        <sc-if value="{{ priceLocked }}" hint-placeholder-val="{{ false }}">
+          <p class="text-muted" style="font-size:13px;margin-top:10px">Prices and per-SKU counts are masked. <a style="cursor:pointer" onClick="{{ openLogin }}">Sign in</a> to see the full sheet.</p>
+        </sc-if>
+      </section>
+
+      <section style="margin-top:56px;display:grid;grid-template-columns:1.2fr 0.8fr;gap:40px">
+        <div class="blueprint" style="padding:24px">
+          <h3 style="margin:0 0 4px">Place a demand request</h3>
+          <p class="text-muted" style="font-size:13px">We hold the cartons for 48 hours while we price it. No payment at this stage.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+            <div class="field"><label>Quantity wanted (units)</label><input class="input" type="text" placeholder="{{ lot.moqLabel }} minimum" value="{{ rf.qty }}" onChange="{{ on.rqQty }}"></div>
+            <div class="field"><label>Target price per unit</label><input class="input" type="text" placeholder="e.g. €6.80" value="{{ rf.price }}" onChange="{{ on.rqPrice }}"></div>
+            <div class="field"><label>Destination port / city</label><input class="input" type="text" placeholder="e.g. Jebel Ali, AE" value="{{ rf.dest }}" onChange="{{ on.rqDest }}"></div>
+            <div class="field"><label>Company &amp; VAT / import licence no.</label><input class="input" type="text" placeholder="e.g. Import Co. LLC · NL8811 44 02 B01" value="{{ rf.vat }}" onChange="{{ on.rqVat }}"></div>
+            <div class="field" style="grid-column:span 2"><label>Notes</label><textarea class="input" placeholder="Mixed sizes acceptable? Labelling or packaging requirements? Delivery window?" value="{{ rf.notes }}" onChange="{{ on.rqNotes }}"></textarea></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+            <button class="btn btn-primary" style="padding:11px 22px" onClick="{{ submitRequest }}">Submit request</button>
+            <span class="text-muted" style="font-size:12px">{{ requestHint }}</span>
+          </div>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </div>
+        <div>
+          <h4>Also from {{ lot.brand }}</h4>
+          <sc-for list="{{ related }}" as="r" hint-placeholder-count="2">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--color-divider);padding:12px 0">
+              <div>
+                <div style="font-family:var(--font-heading);font-size:16px">{{ r.title }}</div>
+                <div class="text-muted" style="font-size:12px">{{ r.code }} · {{ r.unitsLabel }} units</div>
+              </div>
+              <button class="btn btn-ghost" onClick="{{ r.open }}">Open</button>
+            </div>
+          </sc-for>
+          <p class="text-muted" style="font-size:13px;margin-top:18px">Need something not listed? <a style="cursor:pointer" onClick="{{ go.wanted }}">Post a wanted request</a> and we will search our supplier base.</p>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ onBrands }}" hint-placeholder-val="{{ false }}">
+      <h6 style="color:var(--color-accent)">Portfolio</h6>
+      <h1>Brands we currently hold</h1>
+      <p class="text-muted" style="font-size:15px;max-width:60ch">Stock is sourced from cancelled orders, end-of-season carryover and closed retail accounts. Territory restrictions apply on some brands and are confirmed at quotation.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:26px;margin-top:32px">
+        <sc-for list="{{ brands }}" as="b" hint-placeholder-count="6">
+          <article class="card blueprint" style="padding:22px">
+            <div style="font-family:var(--font-heading);font-size:26px;letter-spacing:0.04em">{{ b.name }}</div>
+            <div class="text-muted" style="font-size:12px">{{ b.cats }}</div>
+            <div style="display:flex;gap:22px;margin-top:14px;font-size:13px">
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Lots</div>{{ b.lots }}</div>
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">Units</div>{{ b.unitsLabel }}</div>
+              <div><div class="text-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase">From</div>{{ b.fromLabel }}</div>
+            </div>
+            <button class="btn btn-secondary btn-block" onClick="{{ b.open }}">View {{ b.lots }} lots</button>
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          </article>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onRequests }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ isGuest }}" hint-placeholder-val="{{ true }}">
+        <div class="blueprint" style="max-width:520px;margin:40px auto;padding:34px;text-align:center">
+          <h6 style="color:var(--color-accent)">Buyer area</h6>
+          <h2 style="margin-bottom:8px">Sign in to manage requests</h2>
+          <p class="text-muted" style="font-size:14px">Your demand requests, quotes and reservation deadlines live here. Accounts are opened for registered importers and wholesalers.</p>
+          <button class="btn btn-primary btn-block" style="padding:11px" onClick="{{ openLogin }}">Sign in or request access</button>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:26px">
+          <div>
+            <h6 style="color:var(--color-accent)">{{ userCompany }}</h6>
+            <h1 style="margin:0">Demand requests</h1>
+          </div>
+          <div class="seg">
+            <label class="seg-opt"><input type="radio" name="reqtab" checked="{{ tabMine }}" onChange="{{ on.tabMine }}">My requests {{ requestCountLabel }}</label>
+            <label class="seg-opt"><input type="radio" name="reqtab" checked="{{ tabWanted }}" onChange="{{ on.tabWanted }}">Request stock we don't list</label>
+          </div>
+        </div>
+
+        <sc-if value="{{ tabMine }}" hint-placeholder-val="{{ true }}">
+          <div class="blueprint" style="padding:14px 18px">
+            <table class="table">
+              <thead>
+                <tr><th>Ref</th><th>Type</th><th>Item</th><th>Qty</th><th>Target</th><th>Destination</th><th>Raised</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ requests }}" as="r" hint-placeholder-count="3">
+                  <tr>
+                    <td style="font-family:var(--font-heading);letter-spacing:0.03em">{{ r.id }}</td>
+                    <td class="text-muted">{{ r.type }}</td>
+                    <td>{{ r.ref }}</td>
+                    <td>{{ r.qtyLabel }}</td>
+                    <td>{{ r.price }}</td>
+                    <td>{{ r.dest }}</td>
+                    <td class="text-muted">{{ r.date }}</td>
+                    <td><span class="tag {{ r.tag }}">{{ r.status }}</span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+          </div>
+          <p class="text-muted" style="font-size:13px;margin-top:14px">Quotes are returned within one working day. Reserved cartons are released automatically if a quote is not accepted inside 48 hours.</p>
+        </sc-if>
+
+        <sc-if value="{{ tabWanted }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;grid-template-columns:1.15fr 0.85fr;gap:40px">
+            <div class="blueprint" style="padding:24px">
+              <h3 style="margin:0 0 4px">Tell us what you are looking for</h3>
+              <p class="text-muted" style="font-size:13px">Standing requests are matched against incoming stock before it reaches the public list.</p>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+                <div class="field"><label>Brand or brand tier</label><input class="input" type="text" placeholder="e.g. ATTALO, or 'European premium apparel'" value="{{ wf.brand }}" onChange="{{ on.wBrand }}"></div>
+                <div class="field"><label>Category</label>
+                  <select class="input" value="{{ wf.cat }}" onChange="{{ on.wCat }}">
+                    <sc-for list="{{ catOptions }}" as="c" hint-placeholder-count="4"><option value="{{ c }}">{{ c }}</option></sc-for>
+                  </select>
+                </div>
+                <div class="field"><label>Quantity wanted (units)</label><input class="input" type="text" placeholder="e.g. 20,000" value="{{ wf.qty }}" onChange="{{ on.wQty }}"></div>
+                <div class="field"><label>Target price per unit</label><input class="input" type="text" placeholder="e.g. €9.00" value="{{ wf.price }}" onChange="{{ on.wPrice }}"></div>
+                <div class="field"><label>Destination port / city</label><input class="input" type="text" placeholder="e.g. Casablanca, MA" value="{{ wf.dest }}" onChange="{{ on.wDest }}"></div>
+                <div class="field"><label>Company &amp; VAT / import licence no.</label><input class="input" type="text" placeholder="e.g. Import Co. LLC · NL8811 44 02 B01" value="{{ wf.vat }}" onChange="{{ on.wVat }}"></div>
+                <div class="field" style="grid-column:span 2"><label>Detail</label><textarea class="input" placeholder="Grades accepted, packaging, size curve, labelling, exclusivity needs." value="{{ wf.notes }}" onChange="{{ on.wNotes }}"></textarea></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+                <button class="btn btn-primary" style="padding:11px 22px" onClick="{{ submitWanted }}">Submit demand request</button>
+                <span class="text-muted" style="font-size:12px">{{ wantedHint }}</span>
+              </div>
+              <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            </div>
+            <div>
+              <h4>What we can usually find</h4>
+              <table class="table">
+                <tbody>
+                  <tr><td>Apparel &amp; knitwear</td><td class="text-muted">weekly</td></tr>
+                  <tr><td>Shirting &amp; denim</td><td class="text-muted">weekly</td></tr>
+                  <tr><td>Footwear</td><td class="text-muted">2–3 weeks</td></tr>
+                  <tr><td>Outerwear</td><td class="text-muted">seasonal, Jun &amp; Jan</td></tr>
+                  <tr><td>Sportswear</td><td class="text-muted">monthly</td></tr>
+                </tbody>
+              </table>
+              <p class="text-muted" style="font-size:13px;margin-top:18px">Anything under 500 units is normally not worth shipping — we will say so rather than quote it.</p>
+            </div>
+          </div>
+        </sc-if>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ onAbout }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start">
+        <div>
+          <h6 style="color:var(--color-accent)">About</h6>
+          <h1 style="margin:0 0 16px">A clearing house for European apparel and footwear stock.</h1>
+          <p style="font-size:15px;max-width:52ch">Straiit buys end-of-season carryover, cancelled wholesale orders and closed retail accounts from European brands and factories, then sells it whole to importers and wholesalers outside the brand's own retail channel. Every lot is counted in our warehouse before it is listed, so the SKU sheet you request against is the stock that exists.</p>
+          <p style="font-size:15px;max-width:52ch">We are a principal, not a broker. Stock is bought and held on our own account, which is why we can hold cartons for you while a quote runs and why counts do not change after you commit.</p>
+        </div>
+        <div style="border:1px solid var(--color-divider)">
+          <div style="padding:22px 24px;border-bottom:1px solid var(--color-divider)">
+            <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">01 · Grading</div>
+            <p style="font-size:14px;margin:6px 0 0">A-grade is brand-new with original labelling and packaging. B-grade covers ex-display, marked or repacked goods and is always listed as a separate SKU line, never mixed into an A-grade count.</p>
+          </div>
+          <div style="padding:22px 24px;border-bottom:1px solid var(--color-divider)">
+            <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">02 · Territory</div>
+            <p style="font-size:14px;margin:6px 0 0">Some brands carry territory restrictions. These are confirmed in writing at quotation, before any deposit. We will not sell into a restricted market.</p>
+          </div>
+          <div style="padding:22px 24px;border-bottom:1px solid var(--color-divider)">
+            <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">03 · Terms of sale</div>
+            <p style="font-size:14px;margin:6px 0 0">Sold as seen, per SKU units, minimum order per lot. 30% deposit on order confirmation, balance against warehouse release. EXW as standard; FOB and CIF quoted on request.</p>
+          </div>
+          <div style="padding:22px 24px;border-bottom:1px solid var(--color-divider)">
+            <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">04 · Inspection</div>
+            <p style="font-size:14px;margin:6px 0 0">You or your agent may inspect any lot in the warehouse before committing. Sample cartons can be shipped at cost.</p>
+          </div>
+          <div style="padding:22px 24px">
+            <div class="text-muted" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase">05 · Documents</div>
+            <p style="font-size:14px;margin:6px 0 0">Commercial invoice, packing list per carton, EUR.1 or certificate of origin where applicable, and photographs of the pallets as loaded.</p>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:40px">
+        <button class="btn btn-primary" style="padding:11px 22px" onClick="{{ go.catalogue }}">Browse the stock list</button>
+        <button class="btn btn-secondary" style="padding:11px 22px" onClick="{{ go.contact }}">Contact the desk</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ onContact }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:0.9fr 1.1fr;gap:56px">
+        <div>
+          <h6 style="color:var(--color-accent)">Support</h6>
+          <h1 style="margin:0 0 14px">Talk to the trading desk</h1>
+          <p class="text-muted" style="font-size:15px;max-width:44ch">Quotes, documentation, inspection visits and shipping questions all go to the desk. We answer in English, Dutch, French and Arabic.</p>
+          <table class="table" style="margin-top:22px">
+            <tbody>
+              <tr><td class="text-muted" style="width:38%">Sales &amp; quotes</td><td><a href="mailto:sales@straiit.trade">sales@straiit.trade</a></td></tr>
+              <tr><td class="text-muted">Account &amp; verification</td><td><a href="mailto:accounts@straiit.trade">accounts@straiit.trade</a></td></tr>
+              <tr><td class="text-muted">Logistics &amp; documents</td><td><a href="mailto:docs@straiit.trade">docs@straiit.trade</a></td></tr>
+              <tr><td class="text-muted">Telephone</td><td>+31 10 555 0148</td></tr>
+              <tr><td class="text-muted">Desk hours</td><td>Mon–Fri, 08:00–18:00 CET</td></tr>
+              <tr><td class="text-muted">Office</td><td>Waalhaven Zuidzijde 12, 3088 HH Rotterdam, NL</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="blueprint" style="padding:26px">
+          <h3 style="margin:0 0 4px">Send a message</h3>
+          <p class="text-muted" style="font-size:13px">For pricing, quote the lot code. We reply from the desk, not an autoresponder.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px">
+            <div class="field"><label>Name</label><input class="input" type="text" value="{{ cf.name }}" onChange="{{ on.cName }}"></div>
+            <div class="field"><label>Company</label><input class="input" type="text" value="{{ cf.company }}" onChange="{{ on.cCompany }}"></div>
+            <div class="field"><label>Email</label><input class="input" type="email" value="{{ cf.email }}" onChange="{{ on.cEmail }}"></div>
+            <div class="field"><label>Country of import</label><input class="input" type="text" value="{{ cf.country }}" onChange="{{ on.cCountry }}"></div>
+            <div class="field" style="grid-column:span 2"><label>Message</label><textarea class="input" value="{{ cf.msg }}" onChange="{{ on.cMsg }}"></textarea></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:16px">
+            <button class="btn btn-primary" style="padding:11px 22px" onClick="{{ submitContact }}">Send to the desk</button>
+            <span class="text-muted" style="font-size:12px">{{ contactHint }}</span>
+          </div>
+          <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <footer style="border-top:1px solid var(--color-divider)">
+    <div style="max-width:1240px;margin:0 auto;padding:26px 32px;display:flex;justify-content:space-between;gap:24px;align-items:center;flex-wrap:wrap">
+      <div class="text-muted" style="font-size:12px">STRAIIT STOCK PORTAL BV · KvK 8811 4402 · VAT NL8811 44 02 B01 · Rotterdam</div>
+      <div style="display:flex;gap:20px;font-size:12px">
+        <a href="mailto:sales@straiit.trade">sales@straiit.trade</a>
+        <a style="cursor:pointer" onClick="{{ go.about }}">About &amp; terms</a>
+        <a style="cursor:pointer" onClick="{{ go.contact }}">Support</a>
+        <a style="cursor:pointer" onClick="{{ go.catalogue }}">Stock list</a>
+      </div>
+    </div>
+  </footer>
+
+  <sc-if value="{{ loginOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" style="z-index:60">
+      <div class="dialog blueprint" style="background:var(--color-bg)">
+        <div class="seg" style="align-self:flex-start">
+          <label class="seg-opt"><input type="radio" name="authmode" checked="{{ signinMode }}" onChange="{{ setSignin }}">Sign in</label>
+          <label class="seg-opt"><input type="radio" name="authmode" checked="{{ applyMode }}" onChange="{{ setApply }}">Apply for an account</label>
+        </div>
+        <sc-if value="{{ signinMode }}" hint-placeholder-val="{{ true }}">
+          <div class="dialog-title">Buyer sign-in</div>
+          <div class="dialog-body">Approved importer accounts only. Pricing and full SKU sheets open once you are in.</div>
+          <div class="field"><label>Work email</label><input class="input" type="email" placeholder="you@company.com" value="{{ lf.email }}" onChange="{{ on.lEmail }}"></div>
+          <div class="field"><label>Password</label><input class="input" type="password" placeholder="••••••••" value="{{ lf.pass }}" onChange="{{ on.lPass }}"></div>
+          <div class="dialog-actions">
+            <button class="btn btn-secondary" onClick="{{ closeLogin }}">Cancel</button>
+            <button class="btn btn-primary" onClick="{{ doLogin }}">Sign in</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ applyMode }}" hint-placeholder-val="{{ false }}">
+          <div class="dialog-title">Apply for an account</div>
+          <div class="dialog-body">Accounts are opened by approval. Send company details and we verify VAT or import licence, usually inside one working day.</div>
+          <div class="field"><label>Company</label><input class="input" type="text" placeholder="Registered company name" value="{{ lf.company }}" onChange="{{ on.lCompany }}"></div>
+          <div class="field"><label>VAT / import licence no.</label><input class="input" type="text" placeholder="e.g. NL8811 44 02 B01" value="{{ lf.vat }}" onChange="{{ on.lVat }}"></div>
+          <div class="field"><label>Country of import</label><input class="input" type="text" placeholder="e.g. United Arab Emirates" value="{{ lf.country }}" onChange="{{ on.lCountry }}"></div>
+          <div class="field"><label>Work email</label><input class="input" type="email" placeholder="you@company.com" value="{{ lf.email }}" onChange="{{ on.lEmail }}"></div>
+          <div class="dialog-actions">
+            <span class="text-muted" style="font-size:12px;margin-right:auto">{{ applyHint }}</span>
+            <button class="btn btn-secondary" onClick="{{ closeLogin }}">Cancel</button>
+            <button class="btn btn-primary" onClick="{{ submitApply }}">Send application</button>
+          </div>
+        </sc-if>
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div class="blueprint" style="position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:70;padding:14px 22px;background:var(--color-accent-900);color:var(--color-bg);font-size:14px">
+      {{ toast }}
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showPrices&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;},&quot;currency&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;EUR&quot;,&quot;USD&quot;,&quot;GBP&quot;],&quot;default&quot;:&quot;EUR&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behaviour&quot;}}">
+class Component extends DCLogic {
+  data = [
+    { id: 1, brand: 'ATTALO', title: 'Men’s Piqué Polo', cat: 'Apparel', code: 'ATL-4471', season: 'SS25 carryover', cartons: 1472, pallets: 24, wh: 'Rotterdam, NL', rrp: 69, offer: 7.4, moq: 2000, status: 'Available',
+      cond: 'A-grade, brand-new in original polybags. Cancelled wholesale order, single production run, full labelling and care tickets intact.',
+      v: [['Navy / S', 2400, 'Available'], ['Navy / M', 4100, 'Available'], ['Navy / L', 3900, 'Available'], ['White / M', 3100, 'Available'], ['White / L', 2800, 'Reserved'], ['Olive / XL', 2100, 'Available']] },
+    { id: 2, brand: 'NORDKAP', title: 'Insulated Shell Jacket', cat: 'Outerwear', code: 'NRD-2210', season: 'AW24 end-of-season', cartons: 500, pallets: 18, wh: 'Bremerhaven, DE', rrp: 199, offer: 26.5, moq: 500, status: 'Last cartons',
+      cond: 'A-grade, brand-new with hangtags. Retail returns removed at inspection; counts verified carton by carton.',
+      v: [['Black / M', 1450, 'Available'], ['Black / L', 1600, 'Available'], ['Slate / L', 1300, 'Reserved'], ['Slate / XL', 1900, 'Available']] },
+    { id: 3, brand: 'LOMBARD & SONS', title: 'Poplin Dress Shirt', cat: 'Shirting', code: 'LMB-0918', season: 'Continuity line', cartons: 917, pallets: 12, wh: 'Antwerp, BE', rrp: 89, offer: 11.2, moq: 3000, status: 'Available',
+      cond: 'Two-fold cotton poplin, brand-new, boxed and pinned. Collar sizes 39–43, mixed sleeve lengths.',
+      v: [['White / 40', 8200, 'Available'], ['White / 41', 6400, 'Available'], ['Blue stripe / 41', 4900, 'Available'], ['Blue stripe / 42', 2500, 'Reserved']] },
+    { id: 4, brand: 'CORVIN', title: 'Leather Derby Shoe', cat: 'Footwear', code: 'CRV-7783', season: 'AW24 carryover', cartons: 400, pallets: 10, wh: 'Rotterdam, NL', rrp: 149, offer: 22.0, moq: 600, status: 'Available',
+      cond: 'Full-grain leather, boxed with shoe trees. Size curve skewed to 42–44; broken sizes priced separately.',
+      v: [['Black / 41', 620, 'Available'], ['Black / 42', 1180, 'Available'], ['Black / 43', 1240, 'Available'], ['Brown / 43', 900, 'Available'], ['Brown / 44', 860, 'Available']] },
+    { id: 5, brand: 'HELIOS ATHLETIC', title: 'Training Tee, 3-pack', cat: 'Sportswear', code: 'HLA-3305', season: 'SS26 overrun', cartons: 1050, pallets: 21, wh: 'Valencia, ES', rrp: 39, offer: 4.1, moq: 5000, status: 'Available',
+      cond: 'Overrun from a licensed factory, brand-new, poly-bagged in threes. Barcodes present on the outer pack only.',
+      v: [['Grey mix / S', 6200, 'Available'], ['Grey mix / M', 9400, 'Available'], ['Grey mix / L', 8900, 'Available'], ['Navy mix / L', 4100, 'Available'], ['Navy mix / XL', 2900, 'Reserved']] },
+    { id: 6, brand: 'CORVIN', title: 'Suede Chelsea Boot', cat: 'Footwear', code: 'CRV-1156', season: 'Closed retail account', cartons: 175, pallets: 6, wh: 'Milan, IT', rrp: 249, offer: 38.0, moq: 250, status: 'Reserved',
+      cond: 'Ex-display and new stock from a closed retail account, boxed. 4% marked as B-grade and separately listed.',
+      v: [['Tan / 42', 720, 'Reserved'], ['Black / 42', 810, 'Reserved'], ['Cognac / 43', 380, 'Available'], ['B-grade, mixed sizes', 190, 'Available']] },
+    { id: 7, brand: 'RAVELIN', title: 'Straight-Leg Jean', cat: 'Denim', code: 'RVL-6602', season: 'Continuity line', cartons: 735, pallets: 16, wh: 'Izmir, TR', rrp: 59, offer: 8.9, moq: 2000, status: 'Available',
+      cond: '13oz rigid denim, brand-new with hangtags. Turkish origin, EUR.1 available. Waist curve 30–36.',
+      v: [['Rinse / 30', 5400, 'Available'], ['Rinse / 32', 4300, 'Available'], ['Mid wash / 32', 3100, 'Available'], ['Mid wash / 34', 1900, 'Available']] },
+    { id: 8, brand: 'VERSTRAND', title: 'Merino Crew Knit', cat: 'Knitwear', code: 'VST-8840', season: 'AW25 pre-season', cartons: 620, pallets: 14, wh: 'Gdansk, PL', rrp: 119, offer: 15.75, moq: 1000, status: 'Incoming',
+      cond: '100% extrafine merino, brand-new with hangtags. Lands in warehouse week 39; pre-allocation open now.',
+      v: [['Charcoal / M', 2400, 'Available'], ['Charcoal / L', 2600, 'Available'], ['Oat / L', 2100, 'Available'], ['Oat / XL', 1300, 'Available'], ['Bottle / M', 900, 'Available']] },
+    { id: 9, brand: 'ATTALO', title: 'Cotton Chino Trouser', cat: 'Apparel', code: 'ATL-5109', season: 'SS25 carryover', cartons: 900, pallets: 19, wh: 'Rotterdam, NL', rrp: 79, offer: 9.3, moq: 2000, status: 'Available',
+      cond: 'A-grade, brand-new, folded and bagged. Waist curve 30–36, mixed inseams.',
+      v: [['Stone / 32', 3200, 'Available'], ['Stone / 34', 3600, 'Available'], ['Navy / 32', 2400, 'Available'], ['Navy / 34', 2100, 'Available'], ['Olive / 36', 1300, 'Reserved']] },
+    { id: 10, brand: 'HELIOS ATHLETIC', title: 'Mesh Running Trainer', cat: 'Footwear', code: 'HLA-1044', season: 'SS25 carryover', cartons: 1600, pallets: 20, wh: 'Antwerp, BE', rrp: 89, offer: 13.15, moq: 1000, status: 'Available',
+      cond: 'Brand-new, boxed in pairs. Full size run 39–46, EVA midsole, no retail returns in this lot.',
+      v: [['White / 41', 4000, 'Available'], ['White / 42', 4500, 'Available'], ['Black / 43', 3400, 'Available'], ['Black / 44', 2100, 'Available']] }
+  ];
+
+  state = {
+    screen: 'home', lotId: 1, q: '', brand: 'All brands', cat: 'All categories', sort: 'units',
+    user: null, loginOpen: false, toast: '', reqTab: 'mine',
+    loginMode: 'signin',
+    lf: { email: '', company: '', pass: '', vat: '', country: '' },
+    rf: { qty: '', price: '', dest: '', vat: '', notes: '' },
+    wf: { brand: '', cat: 'All categories', qty: '', price: '', dest: '', vat: '', notes: '' },
+    cf: { name: '', company: '', email: '', country: '', msg: '' },
+    hints: { request: '', wanted: '', contact: '' },
+    requests: [
+      { id: 'DR-1041', type: 'Stock', ref: 'ATL-4471 · ATTALO Piqué Polo', qty: 6000, price: '€6.80', dest: 'Jebel Ali, AE', date: '18 Aug 2026', status: 'Quoted' },
+      { id: 'DR-1038', type: 'Wanted', ref: 'Footwear · men’s leather, premium EU', qty: 20000, price: '€9.00', dest: 'Casablanca, MA', date: '11 Aug 2026', status: 'Sourcing' },
+      { id: 'DR-1024', type: 'Stock', ref: 'NRD-2210 · NORDKAP Shell Jacket', qty: 2500, price: '€24.00', dest: 'Istanbul, TR', date: '02 Aug 2026', status: 'Closed — sold' }
+    ]
+  };
+
+  n(v) { return Number(v).toLocaleString('en-GB'); }
+  eur(v) {
+    const cur = this.props.currency || 'EUR';
+    const map = { EUR: ['€', 1], USD: ['$', 1.09], GBP: ['£', 0.85] };
+    const c = map[cur] || map.EUR;
+    return c[0] + (Number(v) * c[1]).toFixed(2);
+  }
+  priced() { return !!this.state.user || this.props.showPrices === true; }
+  units(l) { return l.v.reduce((a, b) => a + b[1], 0); }
+  statusTag(s) {
+    if (s === 'Available') return 'tag-accent';
+    if (s === 'Reserved') return 'tag-neutral';
+    if (s === 'Last cartons') return 'tag-outline';
+    return 'tag-accent-2';
+  }
+  reqTag(s) {
+    if (s === 'Quoted') return 'tag-accent';
+    if (s === 'Sourcing') return 'tag-outline';
+    if (s === 'New') return 'tag-accent-2';
+    return 'tag-neutral';
+  }
+  go(screen, extra) { this.setState(Object.assign({ screen: screen }, extra || {})); window.scrollTo(0, 0); }
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 3600);
+  }
+  patch(group, key) {
+    return e => this.setState(s => ({ [group]: Object.assign({}, s[group], { [key]: e.target.value }) }));
+  }
+  hint(key, msg) { this.setState(s => ({ hints: Object.assign({}, s.hints, { [key]: msg }) })); }
+
+  view(l) {
+    const auth = this.priced();
+    const u = this.units(l);
+    return {
+      brand: l.brand, title: l.title, cat: l.cat, code: l.code, season: l.season, wh: l.wh,
+      cond: l.cond, status: l.status, statusTag: this.statusTag(l.status),
+      units: u, unitsLabel: this.n(u), packLabel: this.n(l.cartons) + ' / ' + l.pallets,
+      skuCount: l.v.length, moqLabel: this.n(l.moq) + ' units',
+      offer: l.offer,
+      offerLabel: auth ? this.eur(l.offer) : 'On sign-in',
+      rrpLabel: this.eur(l.rrp),
+      open: () => this.go('lot', { lotId: l.id })
+    };
+  }
+
+  renderVals() {
+    const st = this.state;
+    const signedIn = !!st.user;
+    const auth = this.priced();
+    const brandNames = [...new Set(this.data.map(l => l.brand))].sort();
+    const cats = [...new Set(this.data.map(l => l.cat))].sort();
+
+    let list = this.data.slice();
+    const q = st.q.trim().toLowerCase();
+    if (q) list = list.filter(l => (l.brand + ' ' + l.title + ' ' + l.code + ' ' + l.cat).toLowerCase().includes(q));
+    if (st.brand !== 'All brands') list = list.filter(l => l.brand === st.brand);
+    if (st.cat !== 'All categories') list = list.filter(l => l.cat === st.cat);
+    if (st.sort === 'units') list.sort((a, b) => this.units(b) - this.units(a));
+    if (st.sort === 'price') list.sort((a, b) => a.offer - b.offer);
+    if (st.sort === 'brand') list.sort((a, b) => a.brand.localeCompare(b.brand) || a.title.localeCompare(b.title));
+
+    const active = this.data.find(l => l.id === st.lotId) || this.data[0];
+    const totalUnits = this.data.reduce((a, l) => a + this.units(l), 0);
+
+    const skus = active.v.map((v, i) => ({
+      sku: active.code + '-' + String(i + 1).padStart(2, '0'),
+      variant: v[0],
+      unitsLabel: this.n(v[1]),
+      cartons: Math.round(v[1] / (this.units(active) / active.cartons)),
+      rrpLabel: this.eur(active.rrp),
+      offerLabel: auth ? this.eur(active.offer) : '·····',
+      state: v[2], tag: this.statusTag(v[2])
+    }));
+
+    const brands = brandNames.map(name => {
+      const own = this.data.filter(l => l.brand === name);
+      const u = own.reduce((a, l) => a + this.units(l), 0);
+      return {
+        name, lots: own.length, unitsLabel: this.n(u),
+        cats: [...new Set(own.map(l => l.cat))].join(' · '),
+        fromLabel: auth ? this.eur(Math.min(...own.map(l => l.offer))) : 'On sign-in',
+        open: () => this.go('catalogue', { brand: name, cat: 'All categories', q: '' })
+      };
+    });
+
+    return {
+      onHome: st.screen === 'home', onCatalogue: st.screen === 'catalogue', onLot: st.screen === 'lot',
+      onBrands: st.screen === 'brands', onRequests: st.screen === 'requests', onContact: st.screen === 'contact',
+      onAbout: st.screen === 'about',
+      signinMode: st.loginMode === 'signin', applyMode: st.loginMode === 'apply',
+      cur: {
+        home: st.screen === 'home' ? 'page' : null, catalogue: st.screen === 'catalogue' || st.screen === 'lot' ? 'page' : null,
+        brands: st.screen === 'brands' ? 'page' : null, requests: st.screen === 'requests' ? 'page' : null,
+        contact: st.screen === 'contact' ? 'page' : null, about: st.screen === 'about' ? 'page' : null
+      },
+      isAuth: signedIn, isGuest: !signedIn, priceLocked: !auth,
+      userLabel: st.user ? st.user.email : '',
+      userCompany: st.user ? st.user.company : '',
+      loginOpen: st.loginOpen, toast: st.toast,
+      go: {
+        home: () => this.go('home'), catalogue: () => this.go('catalogue'), brands: () => this.go('brands'),
+        requests: () => this.go('requests', { reqTab: 'mine' }), contact: () => this.go('contact'),
+        about: () => this.go('about'),
+        wanted: () => st.user ? this.go('requests', { reqTab: 'wanted' }) : this.setState({ loginOpen: true })
+      },
+      stats: { units: this.n(totalUnits), brands: brandNames.length, lots: this.data.length, updated: '24 Aug 2026' },
+      featured: this.data.slice(0, 3).map(l => this.view(l)),
+      lots: list.map(l => this.view(l)),
+      noResults: list.length === 0,
+      resultLabel: list.length + ' of ' + this.data.length + ' lots shown',
+      brandOptions: ['All brands', ...brandNames],
+      catOptions: ['All categories', ...cats],
+      filters: { q: st.q, brand: st.brand, cat: st.cat, sort: st.sort },
+      lot: this.view(active), skus,
+      related: this.data.filter(l => l.brand === active.brand && l.id !== active.id).map(l => this.view(l)),
+      brands,
+      requests: st.requests.map(r => ({
+        id: r.id, type: r.type, ref: r.ref, qtyLabel: this.n(r.qty), price: r.price,
+        dest: r.dest, date: r.date, status: r.status, tag: this.reqTag(r.status)
+      })),
+      requestCount: st.requests.length,
+      requestCountLabel: '(' + st.requests.length + ')',
+      tabMine: st.reqTab === 'mine', tabWanted: st.reqTab === 'wanted',
+      lf: st.lf, rf: st.rf, wf: st.wf, cf: st.cf,
+      requestHint: st.hints.request, wantedHint: st.hints.wanted, contactHint: st.hints.contact,
+      openLogin: () => this.setState({ loginOpen: true, loginMode: 'signin' }),
+      openApply: () => this.setState({ loginOpen: true, loginMode: 'apply' }),
+      setSignin: () => this.setState({ loginMode: 'signin' }),
+      setApply: () => this.setState({ loginMode: 'apply' }),
+      submitApply: () => {
+        if (!st.lf.company.trim() || !st.lf.email.trim()) { this.hint('apply', 'Company and work email are required.'); return; }
+        const company = st.lf.company.trim();
+        this.setState({ loginOpen: false, lf: { email: '', company: '', pass: '', vat: '', country: '' } });
+        this.hint('apply', '');
+        this.flash('Application for ' + company + ' received. The desk verifies company details and replies within one working day.');
+      },
+      applyHint: st.hints.apply || '',
+      closeLogin: () => this.setState({ loginOpen: false }),
+      doLogin: () => {
+        const email = st.lf.email.trim() || 'buyer@importco.com';
+        const company = st.lf.company.trim() || 'Import Co';
+        this.setState({ user: { email, company }, loginOpen: false });
+        this.flash('Signed in as ' + company + '. Unit pricing is now visible.');
+      },
+      signOut: () => { this.setState({ user: null, screen: 'home' }); this.flash('Signed out.'); },
+      on: {
+        q: e => this.setState({ q: e.target.value }),
+        brand: e => this.setState({ brand: e.target.value }),
+        cat: e => this.setState({ cat: e.target.value }),
+        sort: e => this.setState({ sort: e.target.value }),
+        reset: () => this.setState({ q: '', brand: 'All brands', cat: 'All categories', sort: 'units' }),
+        tabMine: () => this.setState({ reqTab: 'mine' }),
+        tabWanted: () => this.setState({ reqTab: 'wanted' }),
+        lEmail: this.patch('lf', 'email'), lCompany: this.patch('lf', 'company'), lPass: this.patch('lf', 'pass'),
+        lVat: this.patch('lf', 'vat'), lCountry: this.patch('lf', 'country'),
+        rqQty: this.patch('rf', 'qty'), rqPrice: this.patch('rf', 'price'), rqDest: this.patch('rf', 'dest'),
+        rqVat: this.patch('rf', 'vat'), rqNotes: this.patch('rf', 'notes'),
+        wBrand: this.patch('wf', 'brand'), wCat: this.patch('wf', 'cat'), wQty: this.patch('wf', 'qty'),
+        wPrice: this.patch('wf', 'price'), wDest: this.patch('wf', 'dest'), wVat: this.patch('wf', 'vat'),
+        wNotes: this.patch('wf', 'notes'),
+        cName: this.patch('cf', 'name'), cCompany: this.patch('cf', 'company'), cEmail: this.patch('cf', 'email'),
+        cCountry: this.patch('cf', 'country'), cMsg: this.patch('cf', 'msg')
+      },
+      submitRequest: () => {
+        if (!signedIn) { this.setState({ loginOpen: true }); return; }
+        if (!st.rf.qty.trim() || !st.rf.dest.trim()) { this.hint('request', 'Quantity and destination are required.'); return; }
+        const ref = 'DR-' + (1042 + st.requests.filter(r => r.id.startsWith('DR-10')).length);
+        const row = {
+          id: ref, type: 'Stock', ref: active.code + ' · ' + active.brand + ' ' + active.title,
+          qty: parseInt(st.rf.qty.replace(/[^0-9]/g, ''), 10) || 0,
+          price: st.rf.price.trim() || 'Open', dest: st.rf.dest.trim(),
+          date: '24 Aug 2026', status: 'New'
+        };
+        this.setState(s => ({ requests: [row, ...s.requests], rf: { qty: '', price: '', dest: '', vat: '', notes: '' } }));
+        this.hint('request', '');
+        this.go('requests', { reqTab: 'mine' });
+        this.flash(ref + ' raised. Cartons held 48 hours pending quote.');
+      },
+      submitWanted: () => {
+        if (!st.wf.qty.trim() || !st.wf.dest.trim()) { this.hint('wanted', 'Quantity and destination are required.'); return; }
+        const ref = 'DR-' + (1052 + st.requests.length);
+        const row = {
+          id: ref, type: 'Wanted',
+          ref: (st.wf.brand.trim() || 'Any brand') + ' · ' + st.wf.cat.replace('All categories', 'any category'),
+          qty: parseInt(st.wf.qty.replace(/[^0-9]/g, ''), 10) || 0,
+          price: st.wf.price.trim() || 'Open', dest: st.wf.dest.trim(), date: '24 Aug 2026', status: 'Sourcing'
+        };
+        this.setState(s => ({
+          requests: [row, ...s.requests], reqTab: 'mine',
+          wf: { brand: '', cat: 'All categories', qty: '', price: '', dest: '', vat: '', notes: '' }
+        }));
+        this.hint('wanted', '');
+        this.flash(ref + ' logged. We will contact you when matching stock lands.');
+      },
+      submitContact: () => {
+        if (!st.cf.email.trim() || !st.cf.msg.trim()) { this.hint('contact', 'Email and message are required.'); return; }
+        this.setState({ cf: { name: '', company: '', email: '', country: '', msg: '' } });
+        this.hint('contact', '');
+        this.flash('Message sent to sales@straiit.trade. The desk replies within one working day.');
+      }
+    };
+  }
+}
+
+</script>
+</body>
+</html>

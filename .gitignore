@@ -1,0 +1,95 @@
+# Raw supplier stock and catalogue data
+/Available stock/
+/NOOS EU/
+
+# Generated databases and extracted product media
+/back_end/product_importer/media/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Supplier documents and archives
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
+*.pdf
+*.doc
+*.docx
+*.zip
+*.7z
+*.rar
+
+# Raster and extracted image formats
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp
+*.jp2
+*.emf
+*.wmf
+*.ico
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Node / frontend tooling
+node_modules/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.vite/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# Runtime and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/

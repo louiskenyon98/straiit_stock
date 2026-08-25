@@ -1,0 +1,73 @@
+# Straiit Stock Portal
+
+React frontend and read-only catalogue API for the existing Straiit product-import database.
+
+## Development
+
+Run the API in one terminal:
+
+```powershell
+npm run api
+```
+
+Run the frontend in another terminal:
+
+```powershell
+npm run dev
+```
+
+Vite proxies `/api` and `/media` to `http://127.0.0.1:8787`.
+
+The API reads `../back_end/product_importer/products.db` and its adjacent `media`
+directory by default. Override these locations with `STRAIIT_DATABASE` and
+`STRAIIT_MEDIA_ROOT` when needed. The SQLite connection is opened in read-only and
+query-only modes.
+
+Buyer accounts, sessions, demand requests, history, and quotes are stored separately
+in `api/portal.db`. This prevents transactional portal data from being overwritten by
+supplier catalogue imports. Override its path with `STRAIIT_PORTAL_DATABASE`.
+
+## Buyer account approval
+
+Applications submitted through the portal remain pending until reviewed. List them:
+
+```powershell
+npm run accounts:list
+```
+
+Approve or reject an application by ID:
+
+```powershell
+python api/manage.py approve 12
+python api/manage.py reject 12 --note "Unable to verify registration"
+```
+
+Approval creates the organisation and buyer user. The applicant can then sign in
+with the password chosen during application.
+
+## Trading-desk request workflow
+
+List incoming requests, move a request through its workflow, or issue a quote:
+
+```powershell
+python api/manage.py requests --status new
+python api/manage.py request-status DR-000012 reviewing --note "Checking availability"
+python api/manage.py quote DR-000012 12500 EUR --valid-until 2026-09-30 --terms "EXW Rotterdam"
+```
+
+Status and quote changes are persisted and appear on the buyer dashboard.
+
+For production, serve the app and API on the same HTTPS origin and set
+`STRAIIT_COOKIE_SECURE=1`. If the frontend uses a separate origin, list it explicitly
+in `STRAIIT_ALLOWED_ORIGINS`.
+
+## Checks
+
+```powershell
+npm run lint
+npm test
+npm run build
+npm run api:test
+```
+
+The original Claude design export remains in this directory as a visual reference.
