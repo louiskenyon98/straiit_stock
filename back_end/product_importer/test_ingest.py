@@ -32,6 +32,17 @@ class ImporterTests(unittest.TestCase):
         self.assertEqual(rows[0].sku, "J30J320935-BEH")
         self.assertEqual(rows[0].retail_price, 39.9)
 
+    def test_wholesale_retail_pdf_pattern(self):
+        text = (
+            "COTTON STRETCH BOXER 5p\n9999-1026_70101 MULTIPACK\n"
+            "Wholesale: EUR 26.00 | Retail: EUR 69.95"
+        )
+        rows = parse_offer_page(text, 1)
+        self.assertEqual(rows[0].sku, "9999-1026_70101")
+        self.assertEqual(rows[0].wholesale_price, 26)
+        self.assertEqual(rows[0].retail_price, 69.95)
+        self.assertEqual(rows[0].currency, "EUR")
+
     def test_destock_pdf_pattern(self):
         text = "RUNNER GW0005 - CHAUSSURE Ref : Gamme : 40 2 Total 12\nP.Tarif 13.00 €\nRRP 35.00 €"
         rows = parse_destock_page(text, 1)
@@ -95,6 +106,40 @@ class ImporterTests(unittest.TestCase):
         self.assertEqual(rows[0].material, "Cotton")
         self.assertEqual(len(rows[0].variants), 2)
         self.assertEqual(rows[0].variants[0]["barcode"], "1111111111111")
+
+    def test_headerless_ean_sheet_enriches_order_form(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "noos.xlsx"
+            book = Workbook()
+            main = book.active
+            main.title = "Order Form"
+            main.append(["STYLE", "STYLE NUMBER", "COLOR", "WHS PRICE", "RRP", "S", "TOTAL"])
+            main.append(["Boxer", "UM0UM01234", "Navy", 12.5, 35, 0, 0])
+            ean = book.create_sheet("EANS")
+            ean.append([
+                "CORE", "UNDERWEAR", "UM0UM01234", "BOXER", "Underwear", "DW5",
+                "Navy", "S", "Men", 8719858489111, "ACTIVE", 610711, "BD",
+                "95% cotton", "TOMMY HILFIGER", "SS26",
+            ])
+            book.save(path)
+            rows = list(excel_products(path))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].origin, "BD")
+        self.assertEqual(rows[0].hs_code, "610711")
+        self.assertEqual(rows[0].material, "95% cotton")
+        self.assertEqual(rows[0].variants[0]["barcode"], "8719858489111")
+
+    def test_parent_row_size_labels_replace_numeric_order_codes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "apparel.xlsx"
+            book = Workbook()
+            sheet = book.active
+            sheet.append([None, None, "XS", "S", "M"])
+            sheet.append(["Style Code", "Colour", 2, 3, 4, "Price"])
+            sheet.append(["EF5473", "Navy", 1, 2, 3, 20])
+            book.save(path)
+            rows = list(excel_products(path))
+        self.assertEqual([v["size"] for v in rows[0].variants], ["XS", "S", "M"])
 
     def test_stock_threshold_and_alpha_size(self):
         self.assertEqual(as_number("60+"), 60)

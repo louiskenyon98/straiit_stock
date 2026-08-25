@@ -17,6 +17,22 @@ Existing product IDs are preserved when matching source rows are re-imported.
 Unlabelled prices default to EUR; override that with `--default-currency GBP` or
 disable the default with `--default-currency ""`.
 
+For the recurring NOOS supplier tree, use the dedicated command from the repository
+root:
+
+```powershell
+python back_end/product_importer/import_noos.py "NOOS EU" `
+  --database back_end/product_importer/products.db `
+  --media-dir back_end/product_importer/media --force
+```
+
+This scans subfolders, ignores byte-for-byte duplicate supplier files, assigns
+`offer_type = 'NOOS'`, preserves any more specific supplier status, imports
+headerless EAN tabs as variant barcode/material/origin enrichment, and reuses an
+existing catalogue image only on an exact normalized SKU/model match. Blank order
+templates remain traceable in `source_files` with a warning but do not create fake
+products or zero-price records.
+
 ## Database
 
 `products.db` is a SQLite database with four main tables and one website-facing view:

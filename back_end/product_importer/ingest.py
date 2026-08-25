@@ -177,16 +177,16 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
 ALIASES = {
     "brand": ("brand", "marque", "manufacturer"),
     "name": ("title", "product", "product name", "item name", "designation", "style name"),
-    "category": ("category", "type", "family", "product type", "gamme", "sun opth"),
+    "category": ("category", "type", "family", "product type", "gamme", "sun opth", "shape"),
     "model": ("model", "model code", "model color size", "model ref", "maison model name", "style", "model and size", "model and sizes"),
-    "sku": ("sku", "item code", "product code", "reference", "ref", "article", "artilce", "style code", "size and col code"),
+    "sku": ("sku", "item code", "product code", "reference", "ref", "article", "artilce", "style code", "style number", "art no", "ref col", "size and col code"),
     "barcode": ("barcode", "upc", "upc code", "upc sku", "ean", "ean code", "gtin"),
     "description": ("description", "color description", "color descr", "details"),
     "color": ("color", "colour"),
-    "size": ("size", "size range"),
+    "size": ("size", "size range", "size eu", "size es fr"),
     "gender": ("gender", "sex", "department", "target"),
     "material": ("material", "composition"),
-    "quantity": ("quantity", "qty", "q ty", "qty avl", "stock", "available", "available bales", "total quantity", "total", "total pairs"),
+    "quantity": ("quantity", "qty", "q ty", "qty avl", "stock", "available", "available bales", "total quantity", "total", "total pairs", "total pieces"),
     "wholesale_price": ("your price", "net price", "wholesale price", "wsp", "whs", "price per pair eur", "price"),
     "retail_price": ("retail price", "listing price", "public price", "rrp", "msrp"),
     "status": ("status", "item status", "availability"),
@@ -213,7 +213,12 @@ ALIASES = {
 }
 
 SKIP_SHEETS = {"condition", "conditions", "terms", "notes", "read me", "instructions"}
-PRODUCT_CODE = re.compile(r"\b(?=[A-Z0-9./_-]{5,}\b)(?=[A-Z0-9./_-]*[A-Z])(?=[A-Z0-9./_-]*\d)[A-Z0-9]+(?:[./_-]?[A-Z0-9]+)+\b", re.I)
+PRODUCT_CODE = re.compile(
+    r"\b(?:"
+    r"(?=[A-Z0-9./_-]{5,}\b)(?=[A-Z0-9./_-]*[A-Z])(?=[A-Z0-9./_-]*\d)[A-Z0-9]+(?:[./_-]?[A-Z0-9]+)+"
+    r"|\d{4,}(?:[-_]\d{4,})+(?:[-_]\d+)*"
+    r")\b", re.I,
+)
 MONEY = r"(?:£|€|\$|\ufffd)?\s*(\d+(?:[.,]\d{1,2})?)"
 
 
@@ -408,10 +413,37 @@ def normalized_identifier(value: Any) -> str:
     return re.sub(r"[^A-Z0-9]", "", clean_text(value).upper()) if clean_text(value) else ""
 
 
+def clean_identifier(value: Any) -> str | None:
+    """Preserve identifiers that spreadsheet software exposes as integral floats."""
+    if isinstance(value, (float, Decimal)) and float(value).is_integer():
+        return str(int(value))
+    return clean_text(value)
+
+
 def is_size_header(header: str) -> bool:
     text = str(header).strip().upper().replace(",", ".")
-    alpha_sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "3XL", "4XL", "5XL", "6XL", "OS", "ONE SIZE"}
+    alpha_sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "3XL", "4XL", "5XL", "6XL", "OS", "O/S", "ONE SIZE"}
     return text in alpha_sizes or bool(re.fullmatch(r"(?:[A-Z]{1,2})?\d{1,3}(?:\.\d+)?(?:\s*/\s*\d+)?", text))
+
+
+def sheet_dimensions(sheet: Any) -> tuple[int, int]:
+    """Return usable dimensions for read-only worksheets with an unset range."""
+    if sheet.max_row is None or sheet.max_column is None:
+        sheet.calculate_dimension(force=True)
+    return int(sheet.max_row or 0), int(sheet.max_column or 0)
+
+
+def product_headers(preview: list[tuple[Any, ...]], header_index: int) -> list[str]:
+    """Build headers, retaining size labels printed above numeric order columns."""
+    values = list(preview[header_index])
+    if header_index:
+        parents = preview[header_index - 1]
+        for index, value in enumerate(values):
+            parent = clean_text(parents[index]) if index < len(parents) else None
+            current = clean_text(value)
+            if parent and is_size_header(parent) and current and is_size_header(current):
+                values[index] = parent
+    return unique_headers(values)
 
 
 def parse_combined_model(value: Any) -> dict[str, str]:
@@ -451,15 +483,44 @@ def build_auxiliary_maps(workbook: Any) -> dict[str, dict[str, Any]]:
     for sheet in workbook.worksheets:
         if "ean" not in clean_key(sheet.title):
             continue
-        preview = list(sheet.iter_rows(min_row=1, max_row=min(sheet.max_row, 60), values_only=True))
+        max_row, _ = sheet_dimensions(sheet)
+        preview = list(sheet.iter_rows(min_row=1, max_row=min(max_row, 60), values_only=True))
         header_index = find_header(preview)
         if header_index is None:
+            # Several supplier EAN tabs are headerless fixed-width exports.
+            # Columns: collection, group, style code, name, category, colour code,
+            # colour, size, gender, EAN, status, HS, origin, material, brand, release.
+            for row in sheet.iter_rows(values_only=True):
+                values = list(row)
+                if len(values) < 15:
+                    continue
+                sku = clean_identifier(values[2])
+                barcode = clean_identifier(values[9]) if len(values) > 9 else None
+                size = clean_text(values[7]) if len(values) > 7 else None
+                key = normalized_identifier(sku)
+                if not key or not size or not barcode:
+                    continue
+                entry = auxiliary.setdefault(key, {"variants": {}, "attributes": {}})
+                entry["variants"][size] = barcode
+                fixed_fields = {
+                    "collection": values[0], "name": values[3], "category": values[4],
+                    "color_code": values[5], "color": values[6], "gender": values[8],
+                    "status": values[10], "hs_code": values[11], "origin": values[12],
+                    "material": values[13], "brand": values[14],
+                    "release_code": values[15] if len(values) > 15 else None,
+                }
+                for field_name, value in fixed_fields.items():
+                    if clean_text(value) and not entry.get(field_name):
+                        entry[field_name] = clean_identifier(value) if field_name in {"hs_code", "color_code"} else clean_text(value)
+                entry["attributes"].setdefault("EAN rows", []).append(
+                    {"size": size, "barcode": barcode, **{k: json_value(v) for k, v in fixed_fields.items() if clean_text(v)}}
+                )
             continue
-        headers = unique_headers(preview[header_index])
+        headers = product_headers(preview, header_index)
         for row in sheet.iter_rows(min_row=header_index + 2, values_only=True):
             values = list(row[:len(headers)])
             data = {h: json_value(v) for h, v in zip(headers, values) if clean_text(v)}
-            sku = first_value(data, "sku")
+            sku = clean_identifier(first_value(data, "sku"))
             if not sku:
                 continue
             key = normalized_identifier(sku)
@@ -485,11 +546,12 @@ def excel_products(path: Path) -> Iterator[Product]:
             # EAN sheets either mirror the main list or enrich its size variants.
             if "ean" in clean_key(sheet.title):
                 continue
-            preview = list(sheet.iter_rows(min_row=1, max_row=min(sheet.max_row, 60), values_only=True))
+            max_row, _ = sheet_dimensions(sheet)
+            preview = list(sheet.iter_rows(min_row=1, max_row=min(max_row, 60), values_only=True))
             header_index = find_header(preview)
             if header_index is None:
                 continue
-            headers = unique_headers(preview[header_index])
+            headers = product_headers(preview, header_index)
             empty_run = 0
             for row_number, row in enumerate(
                 sheet.iter_rows(min_row=header_index + 2, values_only=True), header_index + 2
@@ -509,13 +571,8 @@ def excel_products(path: Path) -> Iterator[Product]:
                 # A model is the most reliable name when the supplier has no title.
                 name = clean_text(mapped["name"] or combined.get("name") or mapped["model"] or mapped["sku"])
                 model = clean_text(combined.get("model") or mapped["model"])
-                sku = clean_text(mapped["sku"])
-                barcode = clean_text(mapped["barcode"])
-                # Excel often converts long identifiers to numeric values.
-                for label, value in (("sku", mapped["sku"]), ("barcode", mapped["barcode"])):
-                    if isinstance(value, float) and value.is_integer():
-                        if label == "sku": sku = str(int(value))
-                        else: barcode = str(int(value))
+                sku = clean_identifier(mapped["sku"])
+                barcode = clean_identifier(mapped["barcode"])
                 aux = auxiliary.get(normalized_identifier(sku), {}) if sku else {}
                 frame_color = clean_text(mapped["frame_color"])
                 description = clean_text(mapped["description"])
@@ -528,36 +585,46 @@ def excel_products(path: Path) -> Iterator[Product]:
                     color = raw_color or description
                 variants = []
                 aux_variants = aux.get("variants", {})
+                seen_variant_sizes: set[str] = set()
                 for header, value in data.items():
                     if not is_size_header(header):
                         continue
                     quantity = as_number(value)
-                    if quantity is None or quantity <= 0:
+                    variant_barcode = aux_variants.get(str(header))
+                    if (quantity is None or quantity <= 0) and not variant_barcode:
                         continue
                     variants.append({
-                        "size": str(header), "quantity": quantity,
-                        "barcode": aux_variants.get(str(header)), "attributes": {"source_column": header},
+                        "size": str(header), "quantity": quantity if quantity and quantity > 0 else None,
+                        "barcode": variant_barcode, "attributes": {"source_column": header},
                     })
+                    seen_variant_sizes.add(str(header))
+                for variant_size, variant_barcode in aux_variants.items():
+                    if variant_size not in seen_variant_sizes:
+                        variants.append({
+                            "size": variant_size, "quantity": None, "barcode": variant_barcode,
+                            "attributes": {"source": "EAN sheet"},
+                        })
                 if aux.get("attributes"):
                     data["Auxiliary EAN data"] = aux["attributes"]
                 source_key = f"{sheet.title}:{row_number}"
                 product = Product(
                     source_location=f"sheet={sheet.title};row={row_number}", source_key=source_key,
-                    brand=clean_text(mapped["brand"]), name=name, category=clean_text(mapped["category"]),
+                    brand=clean_text(mapped["brand"] or aux.get("brand")), name=name or clean_text(aux.get("name")),
+                    category=clean_text(mapped["category"] or aux.get("category")),
                     model=model, sku=sku, barcode=barcode, description=description,
-                    color=color, size=clean_text(mapped["size"] or combined.get("size")),
-                    gender=clean_text(mapped["gender"]) or infer_gender(name), material=clean_text(mapped["material"]),
+                    color=color or clean_text(aux.get("color")), size=clean_text(mapped["size"] or combined.get("size")),
+                    gender=clean_text(mapped["gender"] or aux.get("gender")) or infer_gender(name), material=clean_text(mapped["material"]),
                     quantity=as_number(mapped["quantity"]), wholesale_price=as_number(mapped["wholesale_price"]),
                     retail_price=as_number(mapped["retail_price"]), currency=infer_currency(headers, values),
-                    status=clean_text(mapped["status"]),
+                    status=clean_text(mapped["status"] or aux.get("status")),
                     offer_type=clean_text(mapped["offer_type"]), origin=clean_text(mapped["origin"] or aux.get("origin")),
                     hs_code=clean_text(mapped["hs_code"] or aux.get("hs_code")), grade=clean_text(mapped["grade"]),
-                    model_year=clean_text(mapped["model_year"]), collection=clean_text(mapped["collection"]),
+                    model_year=clean_text(mapped["model_year"]), collection=clean_text(mapped["collection"] or aux.get("collection")),
                     frame_color=frame_color, lens_color=clean_text(mapped["lens_color"]),
-                    color_code=color_code, material_code=clean_text(mapped["material_code"]),
+                    color_code=color_code or clean_text(aux.get("color_code")), material_code=clean_text(mapped["material_code"]),
                     frame_material=clean_text(mapped["frame_material"]), bridge_size=clean_text(mapped["bridge_size"]),
                     branch_size=clean_text(mapped["branch_size"]), uva_filter=clean_text(mapped["uva_filter"]),
-                    fitting=clean_text(mapped["fitting"]), release_code=clean_text(mapped["release_code"]),
+                    fitting=clean_text(mapped["fitting"]), release_code=clean_text(mapped["release_code"] or aux.get("release_code")),
                     phase=clean_text(mapped["phase"]), order_quantity=as_number(mapped["order_quantity"]),
                     exceeding_quantity=as_number(mapped["exceeding_quantity"]),
                     total_retail_value=as_number(mapped["total_retail_value"]),
@@ -571,6 +638,10 @@ def excel_products(path: Path) -> Iterator[Product]:
 
 
 def currency_from(text: str) -> str | None:
+    upper = text.upper()
+    if "GBP" in upper: return "GBP"
+    if "EUR" in upper: return "EUR"
+    if "USD" in upper: return "USD"
     if "£" in text: return "GBP"
     if "€" in text: return "EUR"
     if "$" in text: return "USD"
@@ -586,6 +657,13 @@ def parse_offer_page(text: str, page_number: int) -> list[Product]:
         rf"(?P<prefix>(?:(?!(?:WSP|WHS|RRP)\b)[\s\S]){{1,240}}?)\s*"
         rf"(?:WSP|WHS)\s*{MONEY}\s*(?:[-–]\s*)?RRP\s*{MONEY}", re.I
     )
+    # Also accept supplier prose such as ``Wholesale: EUR 26 | Retail: EUR 69``.
+    if re.search(r"\bWholesale\b", normalized, re.I):
+        pattern = re.compile(
+            rf"(?P<prefix>(?:(?!(?:Wholesale|Retail)\b)[\s\S]){{1,240}}?)\s*"
+            rf"Wholesale\s*:?\s*(?:EUR|GBP|USD)?\s*{MONEY}\s*(?:\|\s*)?"
+            rf"Retail\s*:?\s*(?:EUR|GBP|USD)?\s*{MONEY}", re.I
+        )
     products = []
     for index, match in enumerate(pattern.finditer(normalized), 1):
         prefix = " ".join(match.group("prefix").split())
@@ -1005,7 +1083,9 @@ def infer_brand_from_filename(filename: str) -> str | None:
     rules = (
         ("tommy", "TOMMY HILFIGER"), ("thu ", "TOMMY HILFIGER"),
         ("calvin klein", "CALVIN KLEIN"), ("ck ", "CALVIN KLEIN"),
-        ("lacoste", "LACOSTE"), ("adidas", "ADIDAS"), ("puma", "PUMA"),
+        ("lacoste", "LACOSTE"), ("birkenstock", "BIRKENSTOCK"),
+        ("bjorn borg", "BJORN BORG"), ("sloggi", "SLOGGI"),
+        ("adidas", "ADIDAS"), ("puma", "PUMA"),
         ("reebok", "REEBOK"), ("asics", "ASICS"), ("timberland", "TIMBERLAND"),
         ("sergio tacchini", "SERGIO TACCHINI"), ("max mara", "MAX MARA"),
         ("helly hansen", "HELLY HANSEN"), ("maserati", "MASERATI"),
