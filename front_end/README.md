@@ -2,6 +2,9 @@
 
 React frontend and read-only catalogue API for the existing Straiit product-import database.
 
+For complete visitor, buyer, and operator instructions, see the
+[usage guide](USAGE.md).
+
 ## Development
 
 Run the API in one terminal:
