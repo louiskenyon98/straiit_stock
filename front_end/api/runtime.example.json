@@ -1,0 +1,5 @@
+{
+  "use_neon": false,
+  "media_base_url": "",
+  "neon_database_url": "postgresql://user:password@host/database?sslmode=require"
+}

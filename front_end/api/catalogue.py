@@ -6,6 +6,12 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
+
+try:
+    from .database import connect_postgres, media_base_url, using_postgres
+except ImportError:  # Support `python api/server.py`.
+    from database import connect_postgres, media_base_url, using_postgres
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -30,8 +36,8 @@ LIST_FIELDS = (
 )
 
 SORTS = {
-    "name": "COALESCE(name, model, sku) COLLATE NOCASE ASC, id ASC",
-    "brand": "COALESCE(brand, '') COLLATE NOCASE ASC, COALESCE(name, model, sku) COLLATE NOCASE ASC",
+    "name": "LOWER(COALESCE(name, model, sku)) ASC, id ASC",
+    "brand": "LOWER(COALESCE(brand, '')) ASC, LOWER(COALESCE(name, model, sku)) ASC",
     "quantity_desc": "quantity IS NULL ASC, quantity DESC, id ASC",
     "price_asc": "wholesale_price IS NULL ASC, wholesale_price ASC, id ASC",
     "price_desc": "wholesale_price IS NULL ASC, wholesale_price DESC, id ASC",
@@ -63,7 +69,9 @@ class ProductQuery:
     sort: str = "name"
 
 
-def connect(database: Path = DEFAULT_DATABASE) -> sqlite3.Connection:
+def connect(database: Path = DEFAULT_DATABASE):
+    if using_postgres():
+        return connect_postgres()
     database = database.resolve()
     connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
@@ -105,6 +113,9 @@ def image_url(path: Any) -> str | None:
     normalized = value.replace("\\", "/").lstrip("/")
     if not normalized.startswith("media/") or ".." in Path(normalized).parts:
         return None
+    remote_origin = media_base_url()
+    if remote_origin:
+        return f"{remote_origin}/{quote(normalized, safe='/')}"
     return "/" + normalized
 
 
@@ -115,7 +126,7 @@ def status_label(value: Any) -> str | None:
     return STATUS_LABELS.get(status.upper(), status.replace("_", " ").title())
 
 
-def serialize_product(row: sqlite3.Row) -> dict[str, Any]:
+def serialize_product(row: Any) -> dict[str, Any]:
     product = {key: row[key] for key in row.keys() if key in PUBLIC_FIELDS}
     product["brand"] = display_brand(product["brand"]) if product.get("brand") else None
     product["category"] = display_category(product["category"]) if product.get("category") else None
@@ -143,7 +154,7 @@ def _where(query: ProductQuery) -> tuple[str, list[Any]]:
     return " AND ".join(clauses), params
 
 
-def list_products(connection: sqlite3.Connection, query: ProductQuery) -> dict[str, Any]:
+def list_products(connection: Any, query: ProductQuery) -> dict[str, Any]:
     page = max(1, query.page)
     page_size = min(100, max(1, query.page_size))
     where, params = _where(query)
@@ -167,11 +178,11 @@ def list_products(connection: sqlite3.Connection, query: ProductQuery) -> dict[s
     }
 
 
-def _normalized_facets(connection: sqlite3.Connection, column: str, formatter) -> list[dict[str, Any]]:
+def _normalized_facets(connection: Any, column: str, formatter) -> list[dict[str, Any]]:
     rows = connection.execute(
-        f"SELECT {column}, COUNT(*) count FROM website_products "
+        f"SELECT MIN({column}) {column}, COUNT(*) count FROM website_products "
         f"WHERE {column} IS NOT NULL AND TRIM({column}) <> '' "
-        f"GROUP BY LOWER(TRIM({column})) ORDER BY count DESC, {column} COLLATE NOCASE"
+        f"GROUP BY LOWER(TRIM({column})) ORDER BY count DESC, LOWER(MIN({column}))"
     ).fetchall()
     return [
         {"value": clean_text(row[column]), "label": formatter(row[column]), "count": row["count"]}
@@ -179,7 +190,7 @@ def _normalized_facets(connection: sqlite3.Connection, column: str, formatter) -
     ]
 
 
-def facets(connection: sqlite3.Connection) -> dict[str, Any]:
+def facets(connection: Any) -> dict[str, Any]:
     plain = lambda value: " ".join(value.replace("_", " ").split()).title()
     return {
         "brands": _normalized_facets(connection, "brand", display_brand),
@@ -190,12 +201,12 @@ def facets(connection: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
-def summary(connection: sqlite3.Connection) -> dict[str, Any]:
+def summary(connection: Any) -> dict[str, Any]:
     row = connection.execute(
         """
         SELECT COUNT(*) products,
                COUNT(DISTINCT UPPER(TRIM(brand))) brands,
-               ROUND(SUM(CASE WHEN quantity > 0 THEN quantity ELSE 0 END), 2) explicit_units,
+               CAST(ROUND(CAST(SUM(CASE WHEN quantity > 0 THEN quantity ELSE 0 END) AS NUMERIC), 2) AS DOUBLE PRECISION) explicit_units,
                SUM(CASE WHEN quantity > 0 THEN 1 ELSE 0 END) in_stock_products,
                MAX(id) latest_product_id
         FROM website_products
@@ -223,7 +234,7 @@ def _moq_tiers(attributes: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(tiers, key=lambda tier: tier["minimum_quantity"])
 
 
-def get_product(connection: sqlite3.Connection, product_id: int) -> dict[str, Any] | None:
+def get_product(connection: Any, product_id: int) -> dict[str, Any] | None:
     fields = ", ".join(PUBLIC_FIELDS)
     row = connection.execute(
         f"SELECT {fields}, attributes_json FROM website_products WHERE id = ?", (product_id,)
@@ -259,7 +270,7 @@ def get_product(connection: sqlite3.Connection, product_id: int) -> dict[str, An
     return product
 
 
-def related_products(connection: sqlite3.Connection, product_id: int, limit: int = 4) -> list[dict[str, Any]]:
+def related_products(connection: Any, product_id: int, limit: int = 4) -> list[dict[str, Any]]:
     active = connection.execute(
         "SELECT brand, category FROM website_products WHERE id = ?", (product_id,)
     ).fetchone()

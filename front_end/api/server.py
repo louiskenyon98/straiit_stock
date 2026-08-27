@@ -7,6 +7,8 @@ import os
 import socket
 import sqlite3
 import time
+from datetime import date, datetime
+from decimal import Decimal
 from http.cookies import SimpleCookie
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -52,6 +54,7 @@ from portal import (
     user_for_session,
 )
 from mailer import EmailDispatcher
+from database import DatabaseError, media_base_url, safe_database_label, using_postgres
 
 
 DATABASE = Path(os.environ.get("STRAIIT_DATABASE", DEFAULT_DATABASE)).resolve()
@@ -90,6 +93,14 @@ class PortalHTTPServer(ThreadingHTTPServer):
 
 def first(params: dict[str, list[str]], key: str, default: str = "") -> str:
     return params.get(key, [default])[0]
+
+
+def json_value(value):
+    if isinstance(value, (date, datetime)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def integer(value: str, default: int) -> int:
@@ -154,7 +165,9 @@ class Handler(BaseHTTPRequestHandler):
         status: HTTPStatus = HTTPStatus.OK,
         headers: dict[str, str] | None = None,
     ) -> None:
-        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        body = json.dumps(
+            payload, ensure_ascii=False, separators=(",", ":"), default=json_value
+        ).encode("utf-8")
         self._headers(status, "application/json; charset=utf-8", len(body), headers)
         self.wfile.write(body)
 
@@ -180,7 +193,11 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 with connect(DATABASE) as connection:
                     if parsed.path == "/api/health":
-                        self.json({"status": "ok"})
+                        self.json({
+                            "status": "ok",
+                            "database": "postgresql" if using_postgres() else "sqlite",
+                            "media": "remote" if media_base_url() else "local",
+                        })
                     elif parsed.path == "/api/catalogue/summary":
                         self.json(apply_reservations(summary(connection)))
                     elif parsed.path == "/api/catalogue/facets":
@@ -203,7 +220,7 @@ class Handler(BaseHTTPRequestHandler):
                         self.product_route(connection, parsed.path)
                     else:
                         self.json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
-        except (sqlite3.Error, OSError, json.JSONDecodeError) as error:
+        except (sqlite3.Error, DatabaseError, OSError, json.JSONDecodeError) as error:
             self.log_error("Request failed: %s", error)
             self.json({"error": "Service unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
 
@@ -242,7 +259,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
         except json.JSONDecodeError:
             self.json({"error": "Request body must be valid JSON"}, HTTPStatus.BAD_REQUEST)
-        except (sqlite3.Error, OSError) as error:
+        except (sqlite3.Error, DatabaseError, OSError) as error:
             self.log_error("Request failed: %s", error)
             self.json({"error": "Service unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
 
@@ -481,13 +498,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    host = os.environ.get("STRAIIT_API_HOST", "127.0.0.1")
-    port = int(os.environ.get("STRAIIT_API_PORT", "8787"))
-    if not DATABASE.is_file():
+    host = os.environ.get("STRAIIT_API_HOST", "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
+    port = int(os.environ.get("STRAIIT_API_PORT") or os.environ.get("PORT") or "8787")
+    if not using_postgres() and not DATABASE.is_file():
         raise SystemExit(f"Database not found: {DATABASE}")
     ensure_schema(PORTAL_DB)
     EmailDispatcher(PORTAL_DB).start()
     print(f"Straiit catalogue API on http://{host}:{port}")
-    print(f"Database: {DATABASE}")
-    print(f"Portal database: {PORTAL_DB}")
+    if using_postgres():
+        print(f"Database: {safe_database_label()}")
+    else:
+        print(f"Database: {DATABASE}")
+        print(f"Portal database: {PORTAL_DB}")
+    print(f"Media: {media_base_url() or MEDIA_ROOT}")
     PortalHTTPServer((host, port), Handler).serve_forever()

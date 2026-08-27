@@ -85,7 +85,7 @@ def main() -> int:
             result = {"expired": expire_reservations(connection)}
         else:
             result = release_reservation(connection, args.reservation_id, args.note)
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, default=str))
     return 0
 
 

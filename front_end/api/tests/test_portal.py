@@ -1,7 +1,9 @@
 import sqlite3
 import unittest
 import tempfile
+import os
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 import api.portal as portal
@@ -9,6 +11,10 @@ import api.portal as portal
 
 class PortalTests(unittest.TestCase):
     def setUp(self):
+        self.neon_override = patch.dict(
+            os.environ, {"STRAIIT_USE_NEON": "false"}
+        )
+        self.neon_override.start()
         self.original_iterations = portal.PASSWORD_ITERATIONS
         portal.PASSWORD_ITERATIONS = 1_000
         self.connection = sqlite3.connect(":memory:")
@@ -19,6 +25,7 @@ class PortalTests(unittest.TestCase):
     def tearDown(self):
         self.connection.close()
         portal.PASSWORD_ITERATIONS = self.original_iterations
+        self.neon_override.stop()
 
     def application(self, email="buyer@example.com", company="Import Co"):
         return portal.submit_application(self.connection, {

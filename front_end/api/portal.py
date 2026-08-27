@@ -11,6 +11,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+try:
+    from .database import DatabaseError, connect_postgres, using_postgres
+except ImportError:  # Support `python api/server.py` and `python api/manage.py`.
+    from database import DatabaseError, connect_postgres, using_postgres
+
 
 PORTAL_DATABASE = Path(__file__).resolve().parent / "portal.db"
 PASSWORD_ITERATIONS = 600_000
@@ -183,6 +188,19 @@ def timestamp(value: datetime | None = None) -> str:
     return (value or now()).isoformat(timespec="seconds")
 
 
+def expired(value: Any, current: datetime | None = None) -> bool:
+    if isinstance(value, datetime):
+        comparison = value if value.tzinfo else value.replace(tzinfo=UTC)
+        return comparison <= (current or now())
+    return str(value) <= timestamp(current)
+
+
+def date_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    return value.isoformat()[:10] if hasattr(value, "isoformat") else str(value)[:10]
+
+
 def normalize_email(value: Any) -> str:
     email = str(value or "").strip().casefold()
     if len(email) > 254 or "@" not in email or email.startswith("@") or email.endswith("@"):
@@ -239,7 +257,9 @@ def verify_password(password: str, encoded: str) -> bool:
         return False
 
 
-def connect_portal(database: Path = PORTAL_DATABASE, *, use_wal: bool = True) -> sqlite3.Connection:
+def connect_portal(database: Path = PORTAL_DATABASE, *, use_wal: bool = True):
+    if using_postgres():
+        return connect_postgres()
     connection = sqlite3.connect(database)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
@@ -249,6 +269,32 @@ def connect_portal(database: Path = PORTAL_DATABASE, *, use_wal: bool = True) ->
 
 
 def ensure_schema(database: Path = PORTAL_DATABASE) -> None:
+    if using_postgres():
+        with connect_portal(database) as connection:
+            rows = connection.execute(
+                "SELECT table_schema,table_name FROM information_schema.tables "
+                "WHERE table_schema IN ('catalogue','portal') "
+                "UNION ALL "
+                "SELECT table_schema,table_name FROM information_schema.views "
+                "WHERE table_schema IN ('catalogue','portal')"
+            ).fetchall()
+            available = {(row["table_schema"], row["table_name"]) for row in rows}
+            required = {
+                ("catalogue", "products"),
+                ("catalogue", "product_images"),
+                ("catalogue", "product_variants"),
+                ("catalogue", "website_products"),
+                ("portal", "users"),
+                ("portal", "demand_requests"),
+                ("portal", "reservations"),
+            }
+            missing = sorted(required - available)
+            if missing:
+                names = ", ".join(f"{schema}.{table}" for schema, table in missing)
+                raise DatabaseError(
+                    f"Neon schema is incomplete ({names}). Run api/migrate_to_neon.py first."
+                )
+        return
     database.parent.mkdir(parents=True, exist_ok=True)
     connection = connect_portal(database, use_wal=False)
     try:
@@ -328,7 +374,7 @@ def approve_application(connection: sqlite3.Connection, application_id: int) -> 
             "Your buyer account is now active. You can sign in and submit or track demand requests.",
         )
         connection.commit()
-    except sqlite3.Error:
+    except (sqlite3.Error, DatabaseError):
         connection.rollback()
         raise
     return {"application_id": application_id, "organization_id": organization_id, "user_id": user_id}
@@ -409,7 +455,7 @@ def user_for_session(connection: sqlite3.Connection, raw_token: str | None) -> t
         "WHERE s.token_hash=?",
         (token_hash,),
     ).fetchone()
-    if not row or row["expires_at"] <= timestamp() or row["status"] != "active" or row["organization_status"] != "active":
+    if not row or expired(row["expires_at"]) or row["status"] != "active" or row["organization_status"] != "active":
         if row:
             connection.execute("DELETE FROM sessions WHERE id=?", (row["session_id"],))
             connection.commit()
@@ -726,9 +772,11 @@ def reset_password(connection: sqlite3.Connection, raw_token: Any, new_password:
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     connection.execute("BEGIN IMMEDIATE")
     row = connection.execute(
-        "SELECT id,user_id,expires_at,used_at FROM password_reset_tokens WHERE token_hash=?", (token_hash,)
+        "SELECT id,user_id,expires_at,used_at FROM password_reset_tokens WHERE token_hash=?" +
+        (" FOR UPDATE" if getattr(connection, "is_postgres", False) else ""),
+        (token_hash,),
     ).fetchone()
-    if not row or row["used_at"] or row["expires_at"] <= timestamp():
+    if not row or row["used_at"] or expired(row["expires_at"]):
         connection.rollback()
         raise PortalError("This password reset link is invalid or has expired.")
     changed = timestamp()
@@ -802,6 +850,8 @@ def hold_stock(
     if not row:
         connection.rollback()
         raise PortalError("A quoted stock request was not found.")
+    if getattr(connection, "is_postgres", False):
+        connection.execute("SELECT pg_advisory_xact_lock(?)", (int(row["product_id"]),))
     existing = connection.execute(
         "SELECT id,quantity,status,expires_at FROM reservations WHERE request_id=? AND status IN ('held','confirmed') ORDER BY id DESC LIMIT 1",
         (row["request_id"],),
@@ -812,7 +862,8 @@ def hold_stock(
     if row["quote_status"] != "open":
         connection.rollback()
         raise PortalError("This quote is no longer available for reservation.")
-    if row["valid_until"] and row["valid_until"][:10] < now().date().isoformat():
+    valid_until = date_text(row["valid_until"])
+    if valid_until and valid_until < now().date().isoformat():
         connection.execute("UPDATE quotes SET status='expired' WHERE id=?", (row["quote_id"],))
         connection.commit()
         raise PortalError("This quote has expired.")
@@ -824,8 +875,8 @@ def hold_stock(
         connection.rollback()
         raise ConflictError("There is not enough unreserved stock to fulfil this request.")
     created = now()
-    if row["valid_until"]:
-        expires_at = f"{row['valid_until'][:10]}T23:59:59+00:00"
+    if valid_until:
+        expires_at = f"{valid_until}T23:59:59+00:00"
     else:
         expires_at = timestamp(created + timedelta(days=7))
     reservation_id = connection.execute(

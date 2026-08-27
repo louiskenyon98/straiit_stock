@@ -41,6 +41,10 @@ By default, the API uses:
 
 - `../back_end/product_importer/products.db` for the read-only product catalogue.
 - `../back_end/product_importer/media/` for product images.
+
+When `media_base_url` is set in `api/runtime.local.json`, product image paths are
+served from that public origin instead. For example, `media/example.jpg` becomes
+`https://straiit-stock-media.s3.eu-west-2.amazonaws.com/media/example.jpg`.
 - `api/portal.db` for accounts, sessions, requests, quotes, reservations, password resets, and queued email.
 
 The API creates and upgrades `api/portal.db` automatically. It does not modify
@@ -244,5 +248,5 @@ database or an environment file as a downloadable static asset.
 - If `/admin` says **Buyer area**, close the dialog and reopen it with **Sign in as operator** from `/admin`.
 - If operator creation appears to hang, type the password and press Enter; the secure prompt does not echo input.
 - If email stays queued, check the SMTP environment variables and the **Recent email** delivery error.
-- If products or images are missing, verify `STRAIIT_DATABASE` and `STRAIIT_MEDIA_ROOT` point to the imported catalogue and media directory.
+- If products or images are missing, verify `STRAIIT_DATABASE` and `STRAIIT_MEDIA_ROOT` point to the imported catalogue and media directory, or verify that `media_base_url` points to the public object-storage origin.
 - Only one API process can listen on port 8787. Stop the existing process before starting another.

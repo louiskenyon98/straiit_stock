@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from api.catalogue import ProductQuery, facets, get_product, list_products, summary
 
@@ -32,6 +33,8 @@ CREATE TABLE product_images (
 
 class CatalogueTests(unittest.TestCase):
     def setUp(self):
+        self.media_origin = patch("api.catalogue.media_base_url", return_value=None)
+        self.media_origin.start()
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "test.db"
         self.connection = sqlite3.connect(self.path)
@@ -54,6 +57,7 @@ class CatalogueTests(unittest.TestCase):
     def tearDown(self):
         self.connection.close()
         self.temp.cleanup()
+        self.media_origin.stop()
 
     def test_filters_and_pagination(self):
         result = list_products(self.connection, ProductQuery(brand="gucci", in_stock=True))
@@ -69,6 +73,18 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(result["variants"][0]["size"], "M")
         self.assertEqual(result["images"][0]["url"], "/media/a.jpg")
         self.assertEqual(result["moq_tiers"][0]["minimum_quantity"], 100)
+
+    def test_remote_media_origin_preserves_and_encodes_path(self):
+        with patch(
+            "api.catalogue.media_base_url",
+            return_value="https://images.example.test",
+        ):
+            from api.catalogue import image_url
+
+            self.assertEqual(
+                image_url("media/Supplier A/product #1.jpg"),
+                "https://images.example.test/media/Supplier%20A/product%20%231.jpg",
+            )
 
     def test_summary_distinguishes_explicit_stock(self):
         result = summary(self.connection)

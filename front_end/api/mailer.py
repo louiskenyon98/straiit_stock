@@ -8,7 +8,12 @@ import threading
 from email.message import EmailMessage
 from pathlib import Path
 
-from portal import PORTAL_DATABASE, connect_portal, timestamp
+try:
+    from .portal import PORTAL_DATABASE, connect_portal, timestamp
+    from .database import DatabaseError
+except ImportError:  # Support direct script entry points.
+    from portal import PORTAL_DATABASE, connect_portal, timestamp
+    from database import DatabaseError
 
 
 def smtp_configured() -> bool:
@@ -86,6 +91,6 @@ class EmailDispatcher(threading.Thread):
         while not self.stopped.is_set():
             try:
                 send_pending_emails(self.database)
-            except sqlite3.Error:
+            except (sqlite3.Error, DatabaseError):
                 pass
             self.stopped.wait(self.interval_seconds)
