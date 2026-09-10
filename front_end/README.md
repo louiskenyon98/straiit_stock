@@ -27,6 +27,12 @@ default; override these locations with `STRAIIT_DATABASE` and
 `STRAIIT_MEDIA_ROOT` when needed. The catalogue SQLite connection is opened in
 read-only and query-only modes.
 
+For a local handoff, set `api/runtime.local.json` to `use_neon: false` with empty
+`media_base_url` and `neon_database_url` values. Share the complete working folder,
+including `back_end/product_importer/products.db`,
+`back_end/product_importer/media`, and `api/portal.db`; these data files are ignored
+by Git and therefore are not included in a fresh clone.
+
 Buyer accounts, sessions, demand requests, history, quotes, email delivery,
 password resets, and reservations are stored separately
 in `api/portal.db`. This prevents transactional portal data from being overwritten by
